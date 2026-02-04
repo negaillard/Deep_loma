@@ -4,6 +4,7 @@ using Models;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -25,6 +26,16 @@ namespace Storage.Models
 		[Required]
 		public int RoleId { get; set; }
 		public virtual Role Role { get; private set; }
+		[Required]
+		public SystemRole SystemRole { get; set; }
+		[Required]
+		public DateTime Created { get; set; }
+
+		[ForeignKey("CreatedByUserId")]
+		public virtual List<Document> Documents { get; set; } = new();
+
+		[ForeignKey("UserId")]
+		public virtual List<DocumentUser> DocumentUsers { get; set; } = new();
 
 		public static User? Create(UserBindingModel model)
 		{
@@ -40,6 +51,8 @@ namespace Storage.Models
 				Email = model.Email,
 				CertificateId = model.CertificateId,
 				RoleId = model.RoleId,
+				SystemRole = model.SystemRole,
+				Created = model.Created,
 			};
 		}
 		public static User Create(UserViewModel model)
@@ -52,6 +65,8 @@ namespace Storage.Models
 				Email = model.Email,
 				CertificateId = model.CertificateId,
 				RoleId = model.RoleId,
+				SystemRole = model.SystemRole,
+				Created = model.Created,
 			};
 		}
 		public void Update(UserBindingModel model)
@@ -70,6 +85,10 @@ namespace Storage.Models
 			Email = Email,
 			CertificateId = CertificateId,
 			RoleId = RoleId,
+			SystemRole = SystemRole,
+			Created = Created,
 		};
+
+		
 	}
 }

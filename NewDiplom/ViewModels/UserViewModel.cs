@@ -9,7 +9,8 @@ using System.Threading.Tasks;
 namespace Contracts.ViewModels
 {
 	public class UserViewModel : IUserModel
-	{
+	{		
+		public int Id { get; set; }
 		public string Fullname { get; set; } = string.Empty;
 
 		public string Login { get; set; } = string.Empty;
@@ -19,7 +20,8 @@ namespace Contracts.ViewModels
 		public int CertificateId { get; set; }
 
 		public int RoleId { get; set; }
+		public SystemRole SystemRole { get; set; }
+		public DateTime Created { get; set; }
 
-		public int Id { get; set; }
 	}
 }

@@ -12,5 +12,7 @@ namespace Models
 		string Description { get; }
 		DateTime CreatedAt { get; }
 		int CreatedByUserId {get; }
+		DocumentStatus Status { get; set;}
+
 	}
 }

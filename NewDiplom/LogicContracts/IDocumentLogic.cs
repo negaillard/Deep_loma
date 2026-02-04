@@ -1,12 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Contracts.BindingModels;
+using Contracts.SearchModels;
+using Contracts.ViewModels;
 
 namespace Contracts.LogicContracts
 {
 	public interface IDocumentLogic
 	{
+		Task<List<DocumentViewModel>?> ReadListAsync(DocumentSearchModel? model);
+		Task<List<DocumentViewModel>?> ReadPagedListAsync(DocumentSearchModel model);
+		Task<DocumentViewModel?> ReadElementAsync(DocumentSearchModel model);
+		Task<bool> CreateAsync(DocumentBindingModel model);
+		Task<bool> UpdateAsync(DocumentBindingModel model);
+		Task<bool> DeleteAsync(DocumentBindingModel model);
 	}
 }

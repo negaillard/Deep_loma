@@ -13,5 +13,7 @@ namespace Models
 		string Email { get; }
 		int CertificateId { get; }
 		int RoleId { get; }
+		SystemRole SystemRole { get; }
+		DateTime Created { get; }
 	}
 }

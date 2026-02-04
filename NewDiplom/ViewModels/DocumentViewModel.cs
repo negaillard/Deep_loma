@@ -1,13 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Models;
 
 namespace Contracts.ViewModels
 {
-	internal class DocumentViewModel
+	public class DocumentViewModel : IDocumentModel
 	{
+		public int Id { get; set; }
 		public string Title { get; set; } = string.Empty;
 
 		public string Description { get; set; } = string.Empty;
@@ -16,6 +13,6 @@ namespace Contracts.ViewModels
 
 		public int CreatedByUserId { get; set; }
 
-		public int Id { get; set; }
+		public DocumentStatus Status { get; set; }
 	}
 }

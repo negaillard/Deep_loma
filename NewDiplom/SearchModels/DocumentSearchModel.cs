@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Models;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,6 +9,7 @@ namespace Contracts.SearchModels
 {
 	public class DocumentSearchModel
 	{
+		public int? Id { get; set; }
 		public string? Title { get; set; } 
 
 		public string? Description { get; set; } 
@@ -16,6 +18,10 @@ namespace Contracts.SearchModels
 
 		public int? CreatedByUserId { get; set; }
 
-		public int? Id { get; set; }
+		public DocumentStatus? Status { get; set; }
+
+		public int? PageNumber { get; set; }
+
+		public int? PageSize { get; set; }
 	}
 }

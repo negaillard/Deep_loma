@@ -7,13 +7,16 @@ namespace Logic.Authentication
 	public class SessionService : ISessionService
 	{
 		private readonly IDistributedCache _cache;
-		private readonly IConfiguration _config;
+		//private readonly IConfiguration _config;
 		private readonly string _sessionPrefix = "session:";
 
-		public SessionService(IDistributedCache cache, IConfiguration config)
+		public SessionService(IDistributedCache cache
+			//IConfiguration config
+			)
+
 		{
 			_cache = cache;
-			_config = config;
+			//_config = config;
 		}
 
 		public async Task<string> CreateSessionAsync(int userId, string username)

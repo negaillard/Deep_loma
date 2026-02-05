@@ -3,7 +3,9 @@ using Contracts.SearchModels;
 using Contracts.StorageContracts;
 using Contracts.ViewModels;
 using Microsoft.EntityFrameworkCore;
+using Models;
 using Storage.Models;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -123,7 +125,81 @@ namespace Storage.Storages
 			}
 			documentUser.Update(model);
 			await context.SaveChangesAsync();
+			await UpdateDocumentStatusAsync(context, documentUser.DocumentId);
 			return documentUser.GetViewModel;
+		}
+		/// здесь ТОЛЬКО обновление статуса документа, НЕ статуса ДОКУМЕНТ-ЮЗЕР. 
+		/// ОБНОВЛЕНИЕ СТАТУСА ДОКУМЕНТ-ЮЗЕР ВЫШЕ !!!
+		private async Task UpdateDocumentStatusAsync(StorageContext context, int documentId)
+		{
+			var document = await context.Documents.FirstOrDefaultAsync(x => x.Id == documentId);
+			if (document == null || document.Status == DocumentStatus.DECLINED)
+			{
+				return;
+			}
+			var documentUsers = await context.DocumentUsers
+				.Where(x => x.DocumentId == documentId)
+				.ToListAsync();
+			if (documentUsers.Count == 0)
+			{
+				return;
+			}
+			if (documentUsers.Any(x => x.SigningStatus == SigningStatus.DECLINED))
+			{
+				document.Status = DocumentStatus.DECLINED;
+				await context.SaveChangesAsync();
+				return;
+			}
+			var statuses = documentUsers.Select(x => x.SigningStatus).ToList();
+			DocumentStatus newStatus;
+			var signaturesAdded = false;
+			if (statuses.All(x => x == SigningStatus.SIGNED))
+			{
+				newStatus = DocumentStatus.SIGNED;
+				var existingSignatures = await context.Signatures
+					.Where(x => x.DocumentId == documentId)
+					.Select(x => x.Id)
+					.ToListAsync();
+				if (existingSignatures.Count == 0)
+				{
+					var userIds = documentUsers.Select(x => x.UserId).Distinct().ToList();
+					var userCertificates = await context.Users
+						.Where(x => userIds.Contains(x.Id))
+						.Select(x => new { x.Id, x.CertificateId })
+						.ToDictionaryAsync(x => x.Id, x => x.CertificateId);
+					var signatures = userIds.Select(userId =>
+					{
+						var certificateId = userCertificates.TryGetValue(userId, out var value) ? value : 0;
+						return new Signature
+						{
+							SignatureValue = string.Empty,
+							CerificateId = certificateId,
+							SignedAt = DateTime.UtcNow,
+							UserId = userId,
+							DocumentId = documentId
+						};
+					}).ToList();
+					await context.Signatures.AddRangeAsync(signatures);
+					signaturesAdded = true;
+				}
+			}
+			else if (statuses.Any(x => x == SigningStatus.SIGNED))
+			{
+				newStatus = DocumentStatus.PARTLY_SIGNED;
+			}
+			else
+			{
+				newStatus = DocumentStatus.NOT_SIGNED;
+			}
+			var statusChanged = document.Status != newStatus;
+			if (statusChanged)
+			{
+				document.Status = newStatus;
+			}
+			if (statusChanged || signaturesAdded)
+			{
+				await context.SaveChangesAsync();
+			}
 		}
 	}
 }

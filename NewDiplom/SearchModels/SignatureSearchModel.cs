@@ -17,8 +17,12 @@ namespace Contracts.SearchModels
 
 		public int? UserId { get; set; }
 
-		public int? DocumnetId { get; set; }
+		public int? DocumentId { get; set; }
 
 		public int? Id { get; set; }
+
+		public int? PageNumber { get; set; }
+
+		public int? PageSize { get; set; }
 	}
 }

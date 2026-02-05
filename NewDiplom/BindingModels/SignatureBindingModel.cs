@@ -17,7 +17,7 @@ namespace Contracts.BindingModels
 
 		public int UserId { get; set; } 
 
-		public int DocumnetId { get; set; } 
+		public int DocumentId { get; set; } 
 
 		public int Id { get; set; } 
 	}

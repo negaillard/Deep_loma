@@ -37,7 +37,7 @@ namespace Storage.Storages
 			var element = await context.Roles
 				.FirstOrDefaultAsync(x =>
 					(!string.IsNullOrEmpty(model.Name) && x.Name == model.Name) ||
-					(model.Id.HasValue && x.Id == model.Id))
+					(model.Id.HasValue && x.Id == model.Id));
 			if (element != null)
 			{
 				return element.GetViewModel;

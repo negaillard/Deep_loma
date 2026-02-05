@@ -12,6 +12,6 @@ namespace Models
 		int CerificateId { get; }
 		DateTime SignedAt { get; }
 		int UserId { get; }
-		int DocumnetId { get; }
+		int DocumentId { get; }
 	}
 }

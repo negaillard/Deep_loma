@@ -30,6 +30,8 @@ namespace Storage.Models
 		public SystemRole SystemRole { get; set; }
 		[Required]
 		public DateTime Created { get; set; }
+		[Required]
+		public bool IsActive { get; set; }
 
 		[ForeignKey("CreatedByUserId")]
 		public virtual List<Document> Documents { get; set; } = new();
@@ -53,6 +55,7 @@ namespace Storage.Models
 				RoleId = model.RoleId,
 				SystemRole = model.SystemRole,
 				Created = model.Created,
+				IsActive = model.IsActive,
 			};
 		}
 		public static User Create(UserViewModel model)
@@ -67,6 +70,7 @@ namespace Storage.Models
 				RoleId = model.RoleId,
 				SystemRole = model.SystemRole,
 				Created = model.Created,
+				IsActive = model.IsActive,
 			};
 		}
 		public void Update(UserBindingModel model)
@@ -76,6 +80,7 @@ namespace Storage.Models
 				return;
 			}
 			CertificateId = model.CertificateId;
+			IsActive = model.IsActive;
 		}
 		public UserViewModel GetViewModel => new()
 		{
@@ -87,6 +92,7 @@ namespace Storage.Models
 			RoleId = RoleId,
 			SystemRole = SystemRole,
 			Created = Created,
+			IsActive = IsActive,
 		};
 
 		

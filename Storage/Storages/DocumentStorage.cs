@@ -5,6 +5,7 @@ using Contracts.ViewModels;
 using Microsoft.EntityFrameworkCore;
 using Models;
 using Storage.Models;
+using System;
 using System.Linq;
 
 namespace Storage.Storages
@@ -17,7 +18,11 @@ namespace Storage.Storages
 			var element = await context.Documents.FirstOrDefaultAsync(rec => rec.Id == model.Id);
 			if (element != null)
 			{
-				context.Documents.Remove(element);
+				if (element.IsDeleted)
+				{
+					return element.GetViewModel;
+				}
+				element.IsDeleted = true;
 				await context.SaveChangesAsync();
 				return element.GetViewModel;
 			}
@@ -31,10 +36,14 @@ namespace Storage.Storages
 				return null;
 			}
 			using var context = new StorageContext();
-			var element = await context.Documents
-				.FirstOrDefaultAsync(x =>
-					(!string.IsNullOrEmpty(model.Title) && x.Title == model.Title) ||
-					(model.Id.HasValue && x.Id == model.Id));
+			var query = context.Documents.AsQueryable();
+			if (!model.IsDeleted.HasValue || model.IsDeleted.Value == false)
+			{
+				query = query.Where(x => !x.IsDeleted);
+			}
+			var element = await query.FirstOrDefaultAsync(x =>
+				(!string.IsNullOrEmpty(model.Title) && x.Title == model.Title) ||
+				(model.Id.HasValue && x.Id == model.Id));
 			if (element != null)
 			{
 				return element.GetViewModel;
@@ -49,7 +58,12 @@ namespace Storage.Storages
 				return new();
 			}
 			using var context = new StorageContext();
-			return await context.Documents
+			var query = context.Documents.AsQueryable();
+			if (!model.IsDeleted.HasValue || model.IsDeleted.Value == false)
+			{
+				query = query.Where(x => !x.IsDeleted);
+			}
+			return await query
 				.Where(x => x.Title.Contains(model.Title))
 				.Select(x => x.GetViewModel)
 				.ToListAsync();
@@ -59,6 +73,7 @@ namespace Storage.Storages
 		{
 			using var context = new StorageContext();
 			return await context.Documents
+				.Where(x => !x.IsDeleted)
 				.Select(x => x.GetViewModel)
 				.ToListAsync();
 		}
@@ -72,6 +87,7 @@ namespace Storage.Storages
 			var skip = (model.PageNumber.Value - 1) * model.PageSize.Value;
 			using var context = new StorageContext();
 			return await context.Documents
+				.Where(x => !x.IsDeleted)
 				.OrderBy(x => x.Id)
 				.Skip(skip)
 				.Take(model.PageSize.Value)
@@ -87,10 +103,20 @@ namespace Storage.Storages
 				return null;
 			}
 			using var context = new StorageContext();
+			newDocument.IsDeleted = false;
 			await context.Documents.AddAsync(newDocument);
 			await context.SaveChangesAsync();
 			if (model.UserIds != null && model.UserIds.Count > 0)
 			{
+				var userIds = model.UserIds.Distinct().ToList();
+				var activeUserIds = await context.Users
+					.Where(x => userIds.Contains(x.Id) && x.IsActive)
+					.Select(x => x.Id)
+					.ToListAsync();
+				if (activeUserIds.Count != userIds.Count)
+				{
+					throw new InvalidOperationException("Нельзя назначить неактивного пользователя на подписание");
+				}
 				var documentUsers = model.UserIds
 					.Distinct()
 					.Select(userId => new DocumentUser

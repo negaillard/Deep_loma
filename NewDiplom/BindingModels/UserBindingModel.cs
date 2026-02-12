@@ -22,5 +22,6 @@ namespace Contracts.BindingModels
 		public SystemRole SystemRole { get; set; }
 
 		public DateTime Created { get; set; }
+		public bool IsActive { get; set; } = true;
 	}
 }

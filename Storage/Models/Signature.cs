@@ -19,6 +19,8 @@ namespace Storage.Models
 		public int UserId { get; set; }
 		[Required]
 		public int DocumentId { get; set; }
+		[Required]
+		public bool IsDeleted { get; set; }
 
 		public static Signature? Create(SignatureBindingModel model)
 		{
@@ -34,6 +36,7 @@ namespace Storage.Models
 				SignedAt = model.SignedAt,
 				UserId = model.UserId,
 				DocumentId = model.DocumentId,
+				IsDeleted = model.IsDeleted,
 			};
 		}
 
@@ -48,6 +51,7 @@ namespace Storage.Models
 			SignedAt = model.SignedAt;
 			UserId = model.UserId;
 			DocumentId = model.DocumentId;
+			IsDeleted = model.IsDeleted;
 		}
 
 		public SignatureViewModel GetViewModel => new()
@@ -58,8 +62,10 @@ namespace Storage.Models
 			SignedAt = SignedAt,
 			UserId = UserId,
 			DocumentId = DocumentId,
+			IsDeleted = IsDeleted,
 		};
 	}
 }
+
 
 

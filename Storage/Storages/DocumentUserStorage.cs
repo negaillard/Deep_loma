@@ -133,7 +133,7 @@ namespace Storage.Storages
 		private async Task UpdateDocumentStatusAsync(StorageContext context, int documentId)
 		{
 			var document = await context.Documents.FirstOrDefaultAsync(x => x.Id == documentId);
-			if (document == null || document.Status == DocumentStatus.DECLINED)
+			if (document == null || document.IsDeleted || document.Status == DocumentStatus.DECLINED)
 			{
 				return;
 			}
@@ -157,7 +157,7 @@ namespace Storage.Storages
 			{
 				newStatus = DocumentStatus.SIGNED;
 				var existingSignatures = await context.Signatures
-					.Where(x => x.DocumentId == documentId)
+					.Where(x => x.DocumentId == documentId && !x.IsDeleted)
 					.Select(x => x.Id)
 					.ToListAsync();
 				if (existingSignatures.Count == 0)
@@ -176,7 +176,8 @@ namespace Storage.Storages
 							CerificateId = certificateId,
 							SignedAt = DateTime.UtcNow,
 							UserId = userId,
-							DocumentId = documentId
+							DocumentId = documentId,
+							IsDeleted = false
 						};
 					}).ToList();
 					await context.Signatures.AddRangeAsync(signatures);

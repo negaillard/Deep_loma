@@ -20,5 +20,6 @@ namespace Contracts.ViewModels
 		public int DocumentId { get; set; }
 
 		public int Id { get; set; }
+		public bool IsDeleted { get; set; }
 	}
 }

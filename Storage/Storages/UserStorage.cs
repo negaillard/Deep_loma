@@ -20,7 +20,11 @@ namespace Storage.Storages
 			var element = await context.Users.FirstOrDefaultAsync(rec => rec.Id == model.Id);
 			if (element != null)
 			{
-				context.Users.Remove(element);
+				if (!element.IsActive)
+				{
+					return element.GetViewModel;
+				}
+				element.IsActive = false;
 				await context.SaveChangesAsync();
 				return element.GetViewModel;
 			}
@@ -34,10 +38,14 @@ namespace Storage.Storages
 				return null;
 			}
 			using var context = new StorageContext();
-			var element = await context.Users
-				.FirstOrDefaultAsync(x =>
-					(!string.IsNullOrEmpty(model.Login) && x.Login == model.Login) ||
-					(model.Id.HasValue && x.Id == model.Id));
+			var query = context.Users.AsQueryable();
+			if (model.IsActive.HasValue)
+			{
+				query = query.Where(x => x.IsActive == model.IsActive.Value);
+			}
+			var element = await query.FirstOrDefaultAsync(x =>
+				(!string.IsNullOrEmpty(model.Login) && x.Login == model.Login) ||
+				(model.Id.HasValue && x.Id == model.Id));
 			if (element != null) {
 				return element.GetViewModel;
 			}	
@@ -51,7 +59,12 @@ namespace Storage.Storages
 				return new();
 			}
 			using var context = new StorageContext();
-			return await context.Users
+			var query = context.Users.AsQueryable();
+			if (model.IsActive.HasValue)
+			{
+				query = query.Where(x => x.IsActive == model.IsActive.Value);
+			}
+			return await query
 				.Where(x => x.Login.Contains(model.Login))
 				.Select(x => x.GetViewModel)
 				.ToListAsync();
@@ -64,7 +77,12 @@ namespace Storage.Storages
 				return new();
 			}
 			using var context = new StorageContext();
-			return await context.Users
+			var query = context.Users.AsQueryable();
+			if (model.IsActive.HasValue)
+			{
+				query = query.Where(x => x.IsActive == model.IsActive.Value);
+			}
+			return await query
 				.Where(x => x.Fullname.Contains(model.Fullname))
 				.Select(x => x.GetViewModel)
 				.ToListAsync();
@@ -86,7 +104,12 @@ namespace Storage.Storages
 			}
 			var skip = (model.PageNumber.Value - 1) * model.PageSize.Value;
 			using var context = new StorageContext();
-			return await context.Users
+			var query = context.Users.AsQueryable();
+			if (model.IsActive.HasValue)
+			{
+				query = query.Where(x => x.IsActive == model.IsActive.Value);
+			}
+			return await query
 				.OrderBy(x => x.Id)
 				.Skip(skip)
 				.Take(model.PageSize.Value)
@@ -102,6 +125,7 @@ namespace Storage.Storages
 				return null;
 			}
 			using var context = new StorageContext();
+			newUser.IsActive = model.IsActive;
 			await context.Users.AddAsync(newUser);
 			await context.SaveChangesAsync();
 			return newUser.GetViewModel;

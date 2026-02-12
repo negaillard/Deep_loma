@@ -8,6 +8,7 @@ namespace Contracts.ViewModels
 {
 	public class CertificateViewModel
 	{
+		public int Id { get; set; }
 		public DateTime StartDate { get; set; }
 
 		public DateTime FinishDate { get; set; }
@@ -21,5 +22,6 @@ namespace Contracts.ViewModels
 		public string Number { get; set; } = string.Empty;
 
 		public int UserId { get; set; }
+		public bool IsActual { get; set; }
 	}
 }

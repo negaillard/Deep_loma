@@ -20,6 +20,8 @@ namespace Contracts.SearchModels
 
 		public DocumentStatus? Status { get; set; }
 
+		public bool? IsDeleted { get; set; }
+
 		public int? PageNumber { get; set; }
 
 		public int? PageSize { get; set; }

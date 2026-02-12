@@ -23,6 +23,8 @@ namespace Storage.Models
 		[Required]
 		public DocumentStatus Status { get; set; }
 		[Required]
+		public bool IsDeleted { get; set; }
+		[Required]
 		public int CreatedByUserId { get; set; } 
 		public virtual User CreatedUser { get; set; }
 
@@ -43,6 +45,7 @@ namespace Storage.Models
 				CreatedAt = model.CreatedAt,
 				CreatedByUserId = model.CreatedByUserId,
 				Status = model.Status,
+				IsDeleted = model.IsDeleted,
 			};
 		}
 		public static Document Create(DocumentViewModel model)
@@ -55,6 +58,7 @@ namespace Storage.Models
 				CreatedAt = model.CreatedAt,
 				CreatedByUserId = model.CreatedByUserId,
 				Status = model.Status,
+				IsDeleted = model.IsDeleted,
 			};
 		}
 		public void Update(DocumentBindingModel model)
@@ -66,6 +70,7 @@ namespace Storage.Models
 			Title = model.Title;
 			Description = model.Description;
 			Status = model.Status;
+			IsDeleted = model.IsDeleted;
 		}
 		public DocumentViewModel GetViewModel => new()
 		{
@@ -75,6 +80,7 @@ namespace Storage.Models
 			CreatedAt = CreatedAt,
 			CreatedByUserId = CreatedByUserId,
 			Status = Status,
+			IsDeleted = IsDeleted,
 		};
 	}
 }

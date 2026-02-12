@@ -18,7 +18,11 @@ namespace Storage.Storages
 			var element = await context.Signatures.FirstOrDefaultAsync(rec => rec.Id == model.Id);
 			if (element != null)
 			{
-				context.Signatures.Remove(element);
+				if (element.IsDeleted)
+				{
+					return element.GetViewModel;
+				}
+				element.IsDeleted = true;
 				await context.SaveChangesAsync();
 				return element.GetViewModel;
 			}
@@ -35,12 +39,16 @@ namespace Storage.Storages
 				return null;
 			}
 			using var context = new StorageContext();
-			var element = await context.Signatures
-				.FirstOrDefaultAsync(x =>
-					(model.Id.HasValue && x.Id == model.Id) ||
-					(!string.IsNullOrEmpty(model.SignatureValue) && x.SignatureValue == model.SignatureValue) ||
-					(model.UserId.HasValue && model.DocumentId.HasValue &&
-						x.UserId == model.UserId && x.DocumentId == model.DocumentId));
+			var query = context.Signatures.AsQueryable();
+			if (!model.IsDeleted.HasValue || model.IsDeleted.Value == false)
+			{
+				query = query.Where(x => !x.IsDeleted);
+			}
+			var element = await query.FirstOrDefaultAsync(x =>
+				(model.Id.HasValue && x.Id == model.Id) ||
+				(!string.IsNullOrEmpty(model.SignatureValue) && x.SignatureValue == model.SignatureValue) ||
+				(model.UserId.HasValue && model.DocumentId.HasValue &&
+					x.UserId == model.UserId && x.DocumentId == model.DocumentId));
 			if (element != null)
 			{
 				return element.GetViewModel;
@@ -54,12 +62,17 @@ namespace Storage.Storages
 				!model.CerificateId.HasValue &&
 				!model.SignedAt.HasValue &&
 				!model.UserId.HasValue &&
-				!model.DocumentId.HasValue)
+				!model.DocumentId.HasValue &&
+				!model.IsDeleted.HasValue)
 			{
 				return new();
 			}
 			using var context = new StorageContext();
 			var query = context.Signatures.AsQueryable();
+			if (!model.IsDeleted.HasValue || model.IsDeleted.Value == false)
+			{
+				query = query.Where(x => !x.IsDeleted);
+			}
 			if (!string.IsNullOrEmpty(model.SignatureValue))
 			{
 				query = query.Where(x => x.SignatureValue.Contains(model.SignatureValue));
@@ -89,6 +102,7 @@ namespace Storage.Storages
 		{
 			using var context = new StorageContext();
 			return await context.Signatures
+				.Where(x => !x.IsDeleted)
 				.Select(x => x.GetViewModel)
 				.ToListAsync();
 		}
@@ -102,6 +116,7 @@ namespace Storage.Storages
 			var skip = (model.PageNumber.Value - 1) * model.PageSize.Value;
 			using var context = new StorageContext();
 			return await context.Signatures
+				.Where(x => !x.IsDeleted)
 				.OrderBy(x => x.Id)
 				.Skip(skip)
 				.Take(model.PageSize.Value)
@@ -117,6 +132,7 @@ namespace Storage.Storages
 				return null;
 			}
 			using var context = new StorageContext();
+			newSignature.IsDeleted = false;
 			await context.Signatures.AddAsync(newSignature);
 			await context.SaveChangesAsync();
 			return newSignature.GetViewModel;
@@ -136,5 +152,6 @@ namespace Storage.Storages
 		}
 	}
 }
+
 
 

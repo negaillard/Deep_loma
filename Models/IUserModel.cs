@@ -15,5 +15,6 @@ namespace Models
 		int RoleId { get; }
 		SystemRole SystemRole { get; }
 		DateTime Created { get; }
+		bool IsActive { get; set; }
 	}
 }

@@ -10,6 +10,7 @@ namespace Contracts.BindingModels
 		public DateTime CreatedAt { get; set; }
 		public int CreatedByUserId { get; set; }
 		public DocumentStatus Status { get; set; }
+		public bool IsDeleted { get; set; } = false;
 
 		public List<int> UserIds { get; set; } = new();
 	}

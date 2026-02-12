@@ -9,6 +9,7 @@ namespace Contracts.BindingModels
 {
 	public class CertificateBindingModel : ICertificateModel
 	{
+		public int Id { get; set; }
 		public DateTime StartDate {  get; set; }
 
 		public DateTime FinishDate { get; set; }
@@ -22,5 +23,6 @@ namespace Contracts.BindingModels
 		public string Number { get; set; } = string.Empty;
 
 		public int UserId { get; set; } 
+		public bool IsActual { get; set; } = true;
 	}
 }

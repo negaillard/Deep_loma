@@ -15,5 +15,6 @@ namespace Models
 		string Owner { get; }
 		string Number { get; }
 		int UserId {  get; }
+		bool IsActual { get; set; }
 	}
 }

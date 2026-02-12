@@ -25,5 +25,6 @@ namespace Contracts.SearchModels
 
 		public int? PageSize { get; set; }
 		public SystemRole? SystemRole { get; set; }
+		public bool? IsActive { get; set; }
 	}
 }

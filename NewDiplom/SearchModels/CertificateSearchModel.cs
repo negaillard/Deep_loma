@@ -8,6 +8,7 @@ namespace Contracts.SearchModels
 {
 	public class CertificateSearchModel
 	{
+		public int? Id { get; set; }
 		public DateTime? StartDate { get; set; }
 
 		public DateTime? FinishDate { get; set; }
@@ -21,5 +22,10 @@ namespace Contracts.SearchModels
 		public string? Number { get; set; } 
 
 		public int? UserId { get; set; }
+		public bool? IsActual { get; set; }
+
+		public int? PageNumber { get; set; }
+
+		public int? PageSize { get; set; }
 	}
 }

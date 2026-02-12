@@ -15,7 +15,7 @@ namespace Storage
 			if (optionsBuilder.IsConfigured == false)
 			{
 				optionsBuilder.UseSqlServer(@"  Data Source=localhost\SQLEXPRESS;
-												Initial Catalog=GPHDatabase;
+												Initial Catalog=DCP;
 												Integrated Security=True;
 												MultipleActiveResultSets=True;;
 												TrustServerCertificate=True");
@@ -29,5 +29,6 @@ namespace Storage
 		public virtual DbSet<Document> Documents { set; get; }
 		public virtual DbSet<DocumentUser> DocumentUsers { set; get; }
 		public virtual DbSet<Signature> Signatures { set; get; }
+		public virtual DbSet<Certificate> Certificates { set; get; }
 	}
 }

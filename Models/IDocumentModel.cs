@@ -13,6 +13,7 @@ namespace Models
 		DateTime CreatedAt { get; }
 		int CreatedByUserId {get; }
 		DocumentStatus Status { get; set;}
+		bool IsDeleted { get; set; }
 
 	}
 }

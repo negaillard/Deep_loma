@@ -3,11 +3,10 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers
 {
-	public class DocumentsController : Controller
+	[Route("api/[controller]")]
+	[ApiController]
+	public class DocumentsController : ControllerBase
 	{
-		public IActionResult Index()
-		{
-			return View();
-		}
+		
 	}
 }

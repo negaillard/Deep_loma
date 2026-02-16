@@ -90,6 +90,7 @@ namespace API.Controllers
 				return BadRequest("Ошибка при обновлении  роли" + ex.Message);
 			}
 		}
+
 		[AuthorizeAdmin]
 		[HttpDelete("{id}")]
 		public async Task<IActionResult> Delete(int id)

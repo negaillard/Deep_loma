@@ -1,0 +1,232 @@
+﻿1. AuthController (аутентификация)
+
+Ты уже говорил про email-коды — это хорошо ложится.
+
+AuthController
+
+Методы:
+
+POST /auth/request-code
+
+вход: email
+
+логика:
+
+проверка, что пользователь существует
+
+генерация одноразового кода
+
+отправка события в Notification Service
+
+POST /auth/confirm-code
+
+вход: email + code
+
+выход: access token (+ refresh token)
+
+логика:
+
+проверка кода
+
+создание сессии (redis)
+
+выдача JWT
+
+👉 Паролей нет, админ не занимается их созданием — ты это очень грамотно выбрал.
+
+2. UsersController (пользователи)
+
+Работа с пользователями только через Gateway, никаких прямых манипуляций.
+
+UsersController
+
+POST /users
+
+создание пользователя
+
+доступ:
+
+SystemAdmin / SuperPlusUser
+
+вход:
+
+email
+
+имя
+
+systemRole
+
+businessRoles (опционально)
+
+логика:
+
+пользователь создаётся без пароля
+
+активируется при первом входе
+
+GET /users
+
+список пользователей
+
+фильтрация / пагинация
+
+GET /users/{id}
+
+информация о пользователе
+
+PATCH /users/{id}/roles
+
+изменение ролей
+
+💡 Удаление пользователя можно отложить или сделать soft-delete.
+
+3. RolesController (бизнес-роли)
+
+Тут ты очень правильно разделил:
+
+system roles — жёсткие
+
+business roles — гибкие
+
+RolesController
+
+POST /roles
+
+создание бизнес-роли
+
+пример: «Сотрудник отдела кадров»
+
+GET /roles
+
+список ролей
+
+PATCH /roles/{id}
+
+изменение
+
+SystemRole не здесь — они в enum’е и коде.
+
+4. DocumentsController (документы)
+
+Это сердце системы.
+
+DocumentsController
+Загрузка документа
+
+POST /documents
+
+multipart/form-data
+
+вход:
+
+файл
+
+список signerUserIds
+
+логика:
+
+сохранение файла
+
+создание Document
+
+создание DocumentParticipant
+
+событие DocumentCreatedForSigning
+
+Получение документов
+
+GET /documents
+
+список документов пользователя
+
+фильтр:
+
+createdByMe
+
+toSign
+
+signed
+
+GET /documents/{id}
+
+метаданные документа
+
+GET /documents/{id}/file
+
+скачивание файла
+
+5. DocumentSigningController (подписание)
+
+Лучше отдельный контроллер, чтобы не смешивать.
+
+DocumentSigningController
+
+POST /documents/{id}/sign-intent
+
+пользователь выражает намерение подписать
+
+логика:
+
+обновление DocumentParticipant
+
+проверка: все ли подписали
+
+если да → событие DocumentSigningApproved
+
+POST /documents/{id}/reject
+
+отказ от подписи
+
+логика:
+
+изменение статуса документа
+
+уведомления
+
+6. SignaturesController (подписи)
+
+Gateway не создаёт подпись, он лишь читает результат.
+
+SignaturesController
+
+GET /documents/{id}/signatures
+
+список подписей
+
+данные:
+
+пользователь
+
+дата
+
+путь к файлу подписи
+
+сертификат (fingerprint)
+
+GET /signatures/{id}/file
+
+скачивание подписи
+
+7. Internal / Service Controllers (служебные)
+
+Эти контроллеры не для пользователей, а для сервисов.
+
+InternalSignatureController
+
+POST /internal/signature-completed
+
+вызывается Signature Service
+
+вход:
+
+DocumentId
+
+список подписей
+
+логика:
+
+создание Signature
+
+перевод документа в Signed
+
+🔒 Защищён сервисным токеном / mTLS.

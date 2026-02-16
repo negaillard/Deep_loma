@@ -25,9 +25,13 @@ builder.Services.AddScoped<ISessionService, SessionService>();
 
 builder.Services.AddScoped<IUserLogic, UserLogic>();
 builder.Services.AddScoped<IRoleLogic, RoleLogic>();
+builder.Services.AddScoped<IDocumentLogic, DocumentLogic>();
+builder.Services.AddScoped<IDocumentUserLogic, DocumentUserLogic>();
 
 builder.Services.AddScoped<IUserStorage, UserStorage>();
 builder.Services.AddScoped<IRoleStorage, RoleStorage>();
+builder.Services.AddScoped<IDocumentStorage, DocumentStorage>();
+builder.Services.AddScoped<IDocumentUserStorage, DocumentUserStorage>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

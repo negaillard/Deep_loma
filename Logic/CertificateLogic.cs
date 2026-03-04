@@ -3,18 +3,18 @@ using Contracts.LogicContracts;
 using Contracts.SearchModels;
 using Contracts.StorageContracts;
 using Contracts.ViewModels;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace Logic
 {
 	public class CertificateLogic : ICertificateLogic
 	{
 		private readonly ICertificateStorage _CertificateStorage;
-		public CertificateLogic(ICertificateStorage CertificateStorage)
+		private readonly ICertificateGeneratorLogic _generator;
+
+		public CertificateLogic(ICertificateStorage certificateStorage, ICertificateGeneratorLogic generator)
 		{
-			_CertificateStorage = CertificateStorage;
+			_CertificateStorage = certificateStorage;
+			_generator = generator;
 		}
 
 		public async Task<List<CertificateViewModel>?> ReadListAsync(CertificateSearchModel? model)
@@ -91,6 +91,13 @@ namespace Logic
 			return true;
 		}
 
+		public async Task<CertificateViewModel?> GenerateSelfSignedAsync(int userId, string owner, string publisher)
+		{
+			var model = await _generator.GenerateSelfSignedAsync(userId, owner, publisher);
+			await CheckModelAsync(model);
+			return await _CertificateStorage.InsertAsync(model);
+		}
+
 		private async Task CheckModelAsync(CertificateBindingModel model, bool withParams = true)
 		{
 			if (model == null)
@@ -122,6 +129,8 @@ namespace Logic
 		}
 	}
 }
+
+
 
 
 

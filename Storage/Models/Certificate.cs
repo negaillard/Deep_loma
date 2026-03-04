@@ -1,7 +1,6 @@
 using Contracts.BindingModels;
 using Contracts.ViewModels;
 using Models;
-using System;
 using System.ComponentModel.DataAnnotations;
 
 namespace Storage.Models
@@ -9,22 +8,16 @@ namespace Storage.Models
 	public class Certificate : ICertificateModel
 	{
 		public int Id { get; private set; }
-		[Required]
-		public DateTime StartDate { get; set; }
-		[Required]
-		public DateTime FinishDate { get; set; }
-		[Required]
-		public string PublicKey { get; set; } = string.Empty;
-		[Required]
-		public string Publisher { get; set; } = string.Empty;
-		[Required]
-		public string Owner { get; set; } = string.Empty;
-		[Required]
-		public string Number { get; set; } = string.Empty;
-		[Required]
-		public int UserId { get; set; }
-		[Required]
-		public bool IsActual { get; set; }
+		[Required] public DateTime StartDate { get; set; }
+		[Required] public DateTime FinishDate { get; set; }
+		[Required] public string PublicKey { get; set; } = string.Empty;
+		[Required] public string Publisher { get; set; } = string.Empty;
+		[Required] public string Owner { get; set; } = string.Empty;
+		[Required] public string Number { get; set; } = string.Empty;
+		[Required] public int UserId { get; set; }
+		[Required] public bool IsActual { get; set; }
+		[Required] public CertificateMode Mode { get; set; } = CertificateMode.Internal;
+		public string FilePath { get; set; } = string.Empty;
 
 		public static Certificate? Create(CertificateBindingModel model)
 		{
@@ -43,6 +36,8 @@ namespace Storage.Models
 				Number = model.Number,
 				UserId = model.UserId,
 				IsActual = model.IsActual,
+				Mode = model.Mode,
+				FilePath = model.FilePath,
 			};
 		}
 
@@ -60,6 +55,8 @@ namespace Storage.Models
 			Number = model.Number;
 			UserId = model.UserId;
 			IsActual = model.IsActual;
+			Mode = model.Mode;
+			FilePath = model.FilePath;
 		}
 
 		public CertificateViewModel GetViewModel => new()
@@ -73,6 +70,8 @@ namespace Storage.Models
 			Number = Number,
 			UserId = UserId,
 			IsActual = IsActual,
+			Mode = Mode,
+			FilePath = FilePath,
 		};
 	}
 }

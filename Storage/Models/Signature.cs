@@ -11,6 +11,7 @@ namespace Storage.Models
 		public int Id { get; private set; }
 		[Required]
 		public string SignatureValue { get; set; } = string.Empty;
+		public string Path { get; set; } = string.Empty;
 		[Required]
 		public int CerificateId { get; set; }
 		[Required]
@@ -32,6 +33,7 @@ namespace Storage.Models
 			{
 				Id = model.Id,
 				SignatureValue = model.SignatureValue,
+				Path = model.Path,
 				CerificateId = model.CerificateId,
 				SignedAt = model.SignedAt,
 				UserId = model.UserId,
@@ -47,6 +49,7 @@ namespace Storage.Models
 				return;
 			}
 			SignatureValue = model.SignatureValue;
+			Path = model.Path;
 			CerificateId = model.CerificateId;
 			SignedAt = model.SignedAt;
 			UserId = model.UserId;
@@ -58,6 +61,7 @@ namespace Storage.Models
 		{
 			Id = Id,
 			SignatureValue = SignatureValue,
+			Path = Path,
 			CerificateId = CerificateId,
 			SignedAt = SignedAt,
 			UserId = UserId,

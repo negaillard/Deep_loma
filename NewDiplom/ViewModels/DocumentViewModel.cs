@@ -13,6 +13,8 @@ namespace Contracts.ViewModels
 
 		public int CreatedByUserId { get; set; }
 
+		public string Path { get; set; } = string.Empty;
+
 		public DocumentStatus Status { get; set; }
 		public bool IsDeleted { get; set; }
 	}

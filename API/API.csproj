@@ -18,9 +18,9 @@
 		<ProjectReference Include="..\Auth\Auth.csproj" />
 		<ProjectReference Include="..\Logic\Logic.csproj" />
 		<ProjectReference Include="..\NewDiplom\Contracts.csproj" />
-		<ProjectReference Include="..\NewDiplom\Auth.csproj" />
-		<ProjectReference Include="..\NewDiplom\Logic.csproj" />
+		<ProjectReference Include="..\Logic\Logic.csproj" />
 		<ProjectReference Include="..\Storage\Storage.csproj" />
+		<ProjectReference Include="..\FileStorage\FileStorage.csproj" />
 	</ItemGroup>
 
 </Project>

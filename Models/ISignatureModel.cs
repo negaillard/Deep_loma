@@ -13,6 +13,7 @@ namespace Models
 		DateTime SignedAt { get; }
 		int UserId { get; }
 		int DocumentId { get; }
+		string Path { get; set; }
 		bool IsDeleted { get; set; }
 	}
 }

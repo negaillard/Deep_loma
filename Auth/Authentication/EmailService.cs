@@ -1,5 +1,6 @@
-﻿using Contracts.BindingModels.Authentication;
+using Contracts.BindingModels.Authentication;
 using Contracts.LogicContracts.Authentication;
+using MailKit.Security;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MimeKit;
@@ -37,9 +38,12 @@ namespace Logic.Authentication
 				message.Body = bodyBuilder.ToMessageBody();
 
 				using var client = new MailKit.Net.Smtp.SmtpClient();
-				await client.ConnectAsync(_emailSettings.SmtpClientHost, 
+				var socketOptions = _emailSettings.SmtpClientPort == 465
+					? SecureSocketOptions.SslOnConnect
+					: SecureSocketOptions.StartTls;
+				await client.ConnectAsync(_emailSettings.SmtpClientHost,
 										  _emailSettings.SmtpClientPort,
-										  _emailSettings.EnableSsl);
+										  socketOptions);
 				await client.AuthenticateAsync(_emailSettings.MailLogin, 
 											   _emailSettings.MailPassword);
 				await client.SendAsync(message);
@@ -50,7 +54,7 @@ namespace Logic.Authentication
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError("Ошибка отправки");
+				_logger.LogError(ex, "Ошибка отправки письма на {Email}", email);
 				return false;
 			}
 		}

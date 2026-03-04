@@ -2,11 +2,8 @@
 
 namespace API.Controllers
 {
-	public class InternalSignaturesController : Controller
+	public class InternalSignaturesController : ControllerBase
 	{
-		public IActionResult Index()
-		{
-			return View();
-		}
+		
 	}
 }

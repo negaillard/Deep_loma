@@ -5,6 +5,7 @@ using Contracts.StorageContracts;
 using Contracts.ViewModels;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading.Tasks;
 
 namespace Logic
@@ -12,9 +13,11 @@ namespace Logic
 	public class SignatureLogic : ISignatureLogic
 	{
 		private readonly ISignatureStorage _SignatureStorage;
-		public SignatureLogic(ISignatureStorage SignatureStorage)
+		private readonly IFileStorage _fileStorage;
+		public SignatureLogic(ISignatureStorage SignatureStorage, IFileStorage fileStorage)
 		{
 			_SignatureStorage = SignatureStorage;
+			_fileStorage = fileStorage;
 		}
 
 		public async Task<List<SignatureViewModel>?> ReadListAsync(SignatureSearchModel? model)
@@ -61,10 +64,17 @@ namespace Logic
 			return element;
 		}
 
-		public async Task<bool> CreateAsync(SignatureBindingModel model)
+		public async Task<bool> CreateAsync(SignatureBindingModel model, Stream file)
 		{
 			await CheckModelAsync(model);
-			if (await _SignatureStorage.InsertAsync(model) == null)
+			var created = await _SignatureStorage.InsertAsync(model);
+			if (created == null)
+			{
+				return false;
+			}
+			model.Id = created.Id;
+			model.Path = await _fileStorage.SaveSignatureAsync(model.DocumentId, created.Id, file);
+			if (await _SignatureStorage.UpdateAsync(model) == null)
 			{
 				return false;
 			}
@@ -128,6 +138,7 @@ namespace Logic
 		}
 	}
 }
+
 
 
 

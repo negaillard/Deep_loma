@@ -18,6 +18,7 @@ namespace Contracts.BindingModels
 		public int UserId { get; set; } 
 
 		public int DocumentId { get; set; } 
+		public string Path { get; set; } = string.Empty;
 
 		public int Id { get; set; } 
 		public bool IsDeleted { get; set; } = false;

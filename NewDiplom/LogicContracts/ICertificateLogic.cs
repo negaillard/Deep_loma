@@ -1,4 +1,4 @@
-﻿using Contracts.BindingModels;
+using Contracts.BindingModels;
 using Contracts.SearchModels;
 using Contracts.ViewModels;
 using System;
@@ -17,5 +17,11 @@ namespace Contracts.LogicContracts
 		Task<bool> CreateAsync(CertificateBindingModel model);
 		Task<bool> UpdateAsync(CertificateBindingModel model);
 		Task<bool> DeleteAsync(CertificateBindingModel model);
+
+		/// <summary>
+		/// Генерирует самоподписанный сертификат, сохраняет PFX на файловый сервер
+		/// и записывает метаданные в БД. Возвращает созданный ViewModel.
+		/// </summary>
+		Task<CertificateViewModel?> GenerateSelfSignedAsync(int userId, string owner, string publisher);
 	}
 }

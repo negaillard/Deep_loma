@@ -12,6 +12,7 @@ namespace Models
 		string Description { get; }
 		DateTime CreatedAt { get; }
 		int CreatedByUserId {get; }
+		string Path { get; set; }
 		DocumentStatus Status { get; set;}
 		bool IsDeleted { get; set; }
 

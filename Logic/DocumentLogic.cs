@@ -8,16 +8,18 @@ namespace Logic
 {
 	public class DocumentLogic : IDocumentLogic
 	{
-		private readonly IDocumentStorage _DocumentStorage;
-		public DocumentLogic(IDocumentStorage DocumentStorage)
+		private readonly IDocumentStorage _documentStorage;
+		private readonly IFileStorage _fileStorage;
+		public DocumentLogic(IDocumentStorage DocumentStorage, IFileStorage FileStorage)
 		{
-			_DocumentStorage = DocumentStorage;
+			_documentStorage = DocumentStorage;
+			_fileStorage = FileStorage;
 		}
 		public async Task<List<DocumentViewModel>?> ReadListAsync(DocumentSearchModel? model)
 		{
 			var list = model == null
-				? await _DocumentStorage.GetFullListAsync()
-				: await _DocumentStorage.GetFilteredListAsync(model);
+				? await _documentStorage.GetFullListAsync()
+				: await _documentStorage.GetFilteredListAsync(model);
 			if (list == null)
 			{
 				return null;
@@ -35,7 +37,7 @@ namespace Logic
 			{
 				throw new ArgumentException("Не указаны параметры пагинации");
 			}
-			var list = await _DocumentStorage.GetPagedListAsync(model);
+			var list = await _documentStorage.GetPagedListAsync(model);
 			if (list == null)
 			{
 				return null;
@@ -48,17 +50,27 @@ namespace Logic
 			{
 				throw new ArgumentNullException(nameof(model));
 			}
-			var element = await _DocumentStorage.GetElementAsync(model);
+			var element = await _documentStorage.GetElementAsync(model);
 			if (element == null)
 			{
 				return null;
 			}
 			return element;
 		}
-		public async Task<bool> CreateAsync(DocumentBindingModel model)
+		/// <summary>
+		/// работа с файловым хранилищем
+		/// </summary>
+		public async Task<bool> CreateAsync(DocumentBindingModel model, Stream file)
 		{
 			await CheckModelAsync(model);
-			if (await _DocumentStorage.InsertAsync(model) == null)
+			var created = await _documentStorage.InsertAsync(model);
+			if (created == null)
+			{
+				return false;
+			}
+			model.Id = created.Id;
+			model.Path = await _fileStorage.SaveOriginalAsync(created.Id, file);
+			if (await _documentStorage.UpdateAsync(model) == null)
 			{
 				return false;
 			}
@@ -67,7 +79,7 @@ namespace Logic
 		public async Task<bool> UpdateAsync(DocumentBindingModel model)
 		{
 			await CheckModelAsync(model);
-			if (await _DocumentStorage.UpdateAsync(model) == null)
+			if (await _documentStorage.UpdateAsync(model) == null)
 			{
 				return false;
 			}
@@ -76,7 +88,7 @@ namespace Logic
 		public async Task<bool> DeleteAsync(DocumentBindingModel model)
 		{
 			await CheckModelAsync(model, false);
-			if (await _DocumentStorage.DeleteAsync(model) == null)
+			if (await _documentStorage.DeleteAsync(model) == null)
 			{
 				return false;
 			}
@@ -97,7 +109,7 @@ namespace Logic
 				throw new ArgumentNullException("Нет названия документа",
 			   nameof(model.Title));
 			}
-			var element = await _DocumentStorage.GetElementAsync(new DocumentSearchModel
+			var element = await _documentStorage.GetElementAsync(new DocumentSearchModel
 			{
 				Title = model.Title,
 			});

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -14,7 +14,9 @@ namespace Models
 		string Publisher { get; }
 		string Owner { get; }
 		string Number { get; }
-		int UserId {  get; }
+		int UserId { get; }
 		bool IsActual { get; set; }
+		CertificateMode Mode { get; }
+		string FilePath { get; set; }
 	}
 }

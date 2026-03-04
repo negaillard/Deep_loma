@@ -18,6 +18,7 @@ namespace Storage.Models
 		public string Title { get; set; } = string.Empty;
 		[Required]
 		public string Description { get; set; } = string.Empty;
+		public string Path { get; set; } = string.Empty;
 		[Required]
 		public DateTime CreatedAt { get; set; }
 		[Required]
@@ -42,6 +43,7 @@ namespace Storage.Models
 				Id = model.Id,
 				Title = model.Title,
 				Description = model.Description,
+				Path = model.Path,
 				CreatedAt = model.CreatedAt,
 				CreatedByUserId = model.CreatedByUserId,
 				Status = model.Status,
@@ -55,6 +57,7 @@ namespace Storage.Models
 				Id = model.Id,
 				Title = model.Title,
 				Description = model.Description,
+				Path = model.Path,
 				CreatedAt = model.CreatedAt,
 				CreatedByUserId = model.CreatedByUserId,
 				Status = model.Status,
@@ -69,6 +72,7 @@ namespace Storage.Models
 			}
 			Title = model.Title;
 			Description = model.Description;
+			Path = model.Path;
 			Status = model.Status;
 			IsDeleted = model.IsDeleted;
 		}
@@ -77,6 +81,7 @@ namespace Storage.Models
 			Id = Id,
 			Title = Title,
 			Description = Description,
+			Path = Path,
 			CreatedAt = CreatedAt,
 			CreatedByUserId = CreatedByUserId,
 			Status = Status,

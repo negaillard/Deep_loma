@@ -12,8 +12,8 @@ using Storage;
 namespace Storage.Migrations
 {
     [DbContext(typeof(StorageContext))]
-    [Migration("20260210080116_migr5")]
-    partial class migr5
+    [Migration("20260304094405_migr8")]
+    partial class migr8
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -33,11 +33,18 @@ namespace Storage.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("FinishDate")
                         .HasColumnType("datetime2");
 
                     b.Property<bool>("IsActual")
                         .HasColumnType("bit");
+
+                    b.Property<int>("Mode")
+                        .HasColumnType("int");
 
                     b.Property<string>("Number")
                         .IsRequired()
@@ -86,6 +93,10 @@ namespace Storage.Migrations
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
@@ -167,6 +178,10 @@ namespace Storage.Migrations
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("SignatureValue")
                         .IsRequired()

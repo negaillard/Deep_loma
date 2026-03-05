@@ -81,6 +81,11 @@ namespace Storage.Models
 			}
 			CertificateId = model.CertificateId;
 			IsActive = model.IsActive;
+			Login = model.Login;
+			Email = model.Email;
+			SystemRole = model.SystemRole;
+			RoleId = model.RoleId;
+			Fullname = model.Fullname;
 		}
 		public UserViewModel GetViewModel => new()
 		{
@@ -94,7 +99,5 @@ namespace Storage.Models
 			Created = Created,
 			IsActive = IsActive,
 		};
-
-		
 	}
 }

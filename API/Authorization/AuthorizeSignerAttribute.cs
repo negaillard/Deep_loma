@@ -17,7 +17,7 @@ namespace API.Authorization
 				 user.SystemRole != SystemRole.DocumentManager &&
 				 user.SystemRole != SystemRole.Signer))
 			{
-				context.Result = new ForbidResult(); // 403
+				context.Result = new StatusCodeResult(403);
 			}
 		}
 	}

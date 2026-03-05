@@ -53,6 +53,7 @@ namespace Storage.Models
 				return;
 			}
 			Name = model.Name;
+			Description = model.Description;
 		}
 		public RoleViewModel GetViewModel => new()
 		{

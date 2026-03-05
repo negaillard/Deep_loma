@@ -1,4 +1,4 @@
-﻿using Contracts.ViewModels;
+using Contracts.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Models;
@@ -15,7 +15,7 @@ namespace API.Authorization
 			if (user == null ||
 				(user.SystemRole != SystemRole.SystemAdmin && user.SystemRole != SystemRole.DocumentManager))
 			{
-				context.Result = new ForbidResult(); // 403
+				context.Result = new StatusCodeResult(403);
 			}
 		}
 	}

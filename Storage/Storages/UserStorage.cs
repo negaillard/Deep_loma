@@ -54,18 +54,15 @@ namespace Storage.Storages
 
 		public async Task<List<UserViewModel>> GetFilteredListAsync(UserSearchModel model)
 		{
-			if (string.IsNullOrEmpty(model.Login))
+			if (string.IsNullOrEmpty(model.Login) && !model.RoleId.HasValue)
 			{
 				return new();
 			}
 			using var context = new StorageContext();
 			var query = context.Users.AsQueryable();
-			if (model.IsActive.HasValue)
-			{
-				query = query.Where(x => x.IsActive == model.IsActive.Value);
-			}
 			return await query
-				.Where(x => x.Login.Contains(model.Login))
+				.Where(x =>
+				(!string.IsNullOrEmpty(model.Login) && x.Login == model.Login) || (model.RoleId.HasValue && x.RoleId == model.RoleId))
 				.Select(x => x.GetViewModel)
 				.ToListAsync();
 		}

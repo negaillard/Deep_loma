@@ -1,3 +1,4 @@
+using Contracts;
 using Microsoft.EntityFrameworkCore;
 using Models;
 using Storage;
@@ -7,19 +8,31 @@ namespace API.Seeding
 {
 	public static class InitialAdminSeeder
 	{
+
 		/// <summary>
-		/// Засевает первоначального системного администратора, если в БД ещё нет ни одного пользователя.
-		/// Параметры читаются из секции InitialAdmin конфига или переменных окружения
-		/// (InitialAdmin__Email, InitialAdmin__Login, InitialAdmin__Fullname).
-		/// Метод идемпотентен: при последующих запусках ничего не делает.
+		/// Запускается при каждом старте приложения:
+		/// 1. Гарантирует существование системной роли «Нет роли».
+		/// 2. Если пользователей нет — создаёт первоначального администратора.
 		/// </summary>
 		public static async Task SeedInitialAdminAsync(this WebApplication app)
 		{
 			var logger = app.Logger;
 			var config = app.Configuration;
 
-			var email = config["InitialAdmin:Email"];
-			var login = config["InitialAdmin:Login"];
+			await using var context = new StorageContext();
+
+			// Всегда гарантируем наличие служебной роли «Нет роли»
+			await EnsureNoRoleAsync(context, logger);
+
+			// Далее — только если пользователей ещё нет
+			if (await context.Users.AnyAsync())
+			{
+				logger.LogInformation("Пользователи уже существуют — засев начального администратора пропущен.");
+				return;
+			}
+
+			var email    = config["InitialAdmin:Email"];
+			var login    = config["InitialAdmin:Login"];
 			var fullname = config["InitialAdmin:Fullname"];
 
 			if (string.IsNullOrWhiteSpace(email) ||
@@ -32,28 +45,20 @@ namespace API.Seeding
 				return;
 			}
 
-			await using var context = new StorageContext();
-
-			if (await context.Users.AnyAsync())
-			{
-				logger.LogInformation("Пользователи уже существуют — засев начального администратора пропущен.");
-				return;
-			}
-
 			logger.LogInformation("База данных пуста. Создание первоначального администратора...");
 
 			var adminRole = await EnsureAdminRoleAsync(context, logger);
 
 			var admin = new User
 			{
-				Fullname = fullname,
-				Login = login,
-				Email = email,
-				SystemRole = SystemRole.SystemAdmin,
-				RoleId = adminRole.Id,
+				Fullname      = fullname,
+				Login         = login,
+				Email         = email,
+				SystemRole    = SystemRole.SystemAdmin,
+				RoleId        = adminRole.Id,
 				CertificateId = 0,
-				Created = DateTime.UtcNow,
-				IsActive = true,
+				Created       = DateTime.UtcNow,
+				IsActive      = true,
 			};
 
 			await context.Users.AddAsync(admin);
@@ -64,19 +69,40 @@ namespace API.Seeding
 				admin.Login, admin.Email);
 		}
 
+		/// <summary>
+		/// Гарантирует наличие служебной роли «Нет роли».
+		/// Вызывается при каждом запуске — идемпотентно.
+		/// </summary>
+		public static async Task<Role> EnsureNoRoleAsync(StorageContext context, ILogger logger)
+		{
+			var existing = await context.Roles.FirstOrDefaultAsync(r => r.Name == SystemConstants.NoRoleName);
+			if (existing != null)
+				return existing;
+
+			var role = new Role
+			{
+				Name        = SystemConstants.NoRoleName,
+				Description = "Служебная роль — назначается автоматически при удалении роли пользователя",
+			};
+
+			await context.Roles.AddAsync(role);
+			await context.SaveChangesAsync();
+
+			logger.LogInformation("Служебная роль '{RoleName}' создана (Id={Id}).", role.Name, role.Id);
+			return role;
+		}
+
 		private static async Task<Role> EnsureAdminRoleAsync(StorageContext context, ILogger logger)
 		{
 			const string adminRoleName = "SystemAdmin";
 
 			var existing = await context.Roles.FirstOrDefaultAsync(r => r.Name == adminRoleName);
 			if (existing != null)
-			{
 				return existing;
-			}
 
 			var role = new Role
 			{
-				Name = adminRoleName,
+				Name        = adminRoleName,
 				Description = "Полный доступ к системе",
 			};
 

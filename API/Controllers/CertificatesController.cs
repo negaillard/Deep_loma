@@ -11,30 +11,49 @@ namespace API.Controllers
 	public class CertificatesController : ControllerBase
 	{
 		private readonly ICertificateLogic _certificateLogic;
+		private readonly IUserLogic _userLogic;
+		private readonly IConfiguration _configuration;
 		private readonly ILogger<CertificatesController> _logger;
 
-		public CertificatesController(ICertificateLogic certificateLogic, ILogger<CertificatesController> logger)
+		public CertificatesController(
+			ICertificateLogic certificateLogic,
+			IUserLogic userLogic,
+			IConfiguration configuration,
+			ILogger<CertificatesController> logger)
 		{
 			_certificateLogic = certificateLogic;
+			_userLogic = userLogic;
+			_configuration = configuration;
 			_logger = logger;
 		}
 
 		/// <summary>
 		/// Генерирует самоподписанный сертификат для указанного пользователя.
+		/// Owner (CN) берётся из ФИО пользователя в БД.
+		/// Publisher (O) берётся из настройки Organization в конфиге.
 		/// Доступно только администратору.
 		/// </summary>
 		[AuthorizeAdmin]
 		[HttpPost("{userId}/generate")]
-		public async Task<IActionResult> Generate(int userId, [FromBody] GenerateCertificateRequest request)
+		public async Task<IActionResult> Generate(int userId)
 		{
 			try
 			{
 				_logger.LogInformation("Генерация сертификата для пользователя id={UserId}", userId);
 
+				var user = await _userLogic.ReadElementAsync(new UserSearchModel { Id = userId });
+				if (user == null)
+				{
+					return NotFound($"Пользователь id={userId} не найден");
+				}
+
+				var organization = _configuration["Organization"]
+					?? throw new InvalidOperationException("Параметр Organization не задан в конфигурации");
+
 				var certificate = await _certificateLogic.GenerateSelfSignedAsync(
 					userId,
-					request.Owner,
-					request.Publisher);
+					owner: user.Fullname,
+					publisher: organization);
 
 				if (certificate == null)
 				{
@@ -42,8 +61,8 @@ namespace API.Controllers
 					return BadRequest("Не удалось создать сертификат");
 				}
 
-				_logger.LogInformation("Сертификат id={CertId} для пользователя id={UserId} успешно создан",
-					certificate.Id, userId);
+				_logger.LogInformation("Сертификат id={CertId} для пользователя id={UserId} ({Fullname}) успешно создан",
+					certificate.Id, userId, user.Fullname);
 
 				return Ok(certificate);
 			}
@@ -120,18 +139,5 @@ namespace API.Controllers
 				return BadRequest(ex.Message);
 			}
 		}
-	}
-
-	public class GenerateCertificateRequest
-	{
-		/// <summary>
-		/// ФИО или наименование владельца сертификата (поле CN в DN).
-		/// </summary>
-		public string Owner { get; set; } = string.Empty;
-
-		/// <summary>
-		/// Наименование организации-издателя (поле O в DN).
-		/// </summary>
-		public string Publisher { get; set; } = string.Empty;
 	}
 }

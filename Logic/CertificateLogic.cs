@@ -95,7 +95,35 @@ namespace Logic
 		{
 			var model = await _generator.GenerateSelfSignedAsync(userId, owner, publisher);
 			await CheckModelAsync(model);
+			await DeactivateUserCertificatesAsync(userId);
 			return await _CertificateStorage.InsertAsync(model);
+		}
+
+		private async Task DeactivateUserCertificatesAsync(int userId)
+		{
+			var active = await _CertificateStorage.GetFilteredListAsync(new CertificateSearchModel
+			{
+				UserId = userId,
+				IsActual = true,
+			});
+
+			foreach (var cert in active)
+			{
+				await _CertificateStorage.UpdateAsync(new CertificateBindingModel
+				{
+					Id = cert.Id,
+					StartDate = cert.StartDate,
+					FinishDate = cert.FinishDate,
+					PublicKey = cert.PublicKey,
+					Publisher = cert.Publisher,
+					Owner = cert.Owner,
+					Number = cert.Number,
+					UserId = cert.UserId,
+					IsActual = false,
+					Mode = cert.Mode,
+					FilePath = cert.FilePath,
+				});
+			}
 		}
 
 		private async Task CheckModelAsync(CertificateBindingModel model, bool withParams = true)

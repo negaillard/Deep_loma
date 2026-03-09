@@ -212,4 +212,20 @@ public class ApiClient
             return (false, ex.Message);
         }
     }
+
+    // ── Certificates ──────────────────────────────────────────────────────
+
+    public async Task<(bool Success, string Message)> GenerateCertificate(int userId)
+    {
+        try
+        {
+            var response = await Client().PostAsync($"api/certificates/{userId}/generate", null);
+            var body = await response.Content.ReadAsStringAsync();
+            return (response.IsSuccessStatusCode, body.Trim('"'));
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message);
+        }
+    }
 }

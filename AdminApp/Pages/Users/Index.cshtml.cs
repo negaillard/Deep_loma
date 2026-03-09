@@ -139,6 +139,18 @@ public class IndexModel : PageModel
         return RedirectToPage(new { pageNumber, search });
     }
 
+    public async Task<IActionResult> OnPostGenerateCertificateAsync(int id, int pageNumber = 1, string? search = null)
+    {
+        var (success, message) = await _apiClient.GenerateCertificate(id);
+
+        if (success)
+            SuccessMessage = "Сертификат успешно выпущен.";
+        else
+            ErrorMessage = $"Не удалось выпустить сертификат: {message}";
+
+        return RedirectToPage(new { pageNumber, search });
+    }
+
     public IActionResult OnPostSearch(string? search)
     {
         return RedirectToPage(new { search });

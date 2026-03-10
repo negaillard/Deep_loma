@@ -1,4 +1,4 @@
-﻿using Contracts.LogicContracts;
+using Contracts.LogicContracts;
 using Contracts.LogicContracts.Authentication;
 using Contracts.SearchModels;
 
@@ -21,28 +21,37 @@ namespace API.Authorization
 
 		public async Task Invoke(HttpContext context, ISessionService sessionService, IUserLogic userLogic)
 		{
-			_logger.LogInformation("AUTH HEADER: {Header}", context.Request.Headers["Authorization"]);
-
-			if (context.Request.Headers.TryGetValue("Authorization", out var authHeader))
+			_logger.LogWarning("AUTH MIDDLEWARE START: {Method} {Path}", context.Request.Method, context.Request.Path);
+			try
 			{
-				var token = authHeader.ToString().Replace("Bearer ", "");
-				_logger.LogInformation(">>> TOKEN: {Token}", token);
-
-				var session = await sessionService.GetSessionAsync(token);
-
-				if (session != null && session.IsActive && session.ExpiresAt > DateTime.UtcNow)
+				if (context.Request.Headers.TryGetValue("Authorization", out var authHeader))
 				{
-					var user = await userLogic.ReadElementAsync(new UserSearchModel { Id = session.UserId });
-					_logger.LogInformation("USER FOUND: {Found} | Role: {Role}", user != null, user?.SystemRole);
-					if (user != null && user.IsActive)
+					var token = authHeader.ToString().Replace("Bearer ", "");
+					_logger.LogInformation(">>> TOKEN: {Token}", token);
+
+					var session = await sessionService.GetSessionAsync(token);
+
+					if (session != null && session.IsActive && session.ExpiresAt > DateTime.UtcNow)
 					{
-						context.Items["User"] = user;
-						_logger.LogInformation("USER PLACED IN CONTEXT");
+						var user = await userLogic.ReadElementAsync(new UserSearchModel { Id = session.UserId });
+						_logger.LogInformation("USER FOUND: {Found} | Role: {Role}", user != null, user?.SystemRole);
+						if (user != null && user.IsActive)
+						{
+							context.Items["User"] = user;
+							_logger.LogInformation("USER PLACED IN CONTEXT");
+						}
 					}
 				}
-			}
 
-			await _next(context);
+				_logger.LogWarning("AUTH MIDDLEWARE: calling next");
+				await _next(context);
+				_logger.LogWarning("AUTH MIDDLEWARE: next completed");
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "AUTH MIDDLEWARE EXCEPTION: {Message}", ex.Message);
+				throw;
+			}
 		}
 	}
 }

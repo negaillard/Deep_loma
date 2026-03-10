@@ -60,7 +60,7 @@ namespace Logic
 		/// <summary>
 		/// работа с файловым хранилищем
 		/// </summary>
-		public async Task<bool> CreateAsync(DocumentBindingModel model, Stream file)
+		public async Task<bool> CreateAsync(DocumentBindingModel model, Stream file, string extension)
 		{
 			await CheckModelAsync(model);
 			var created = await _documentStorage.InsertAsync(model);
@@ -69,7 +69,7 @@ namespace Logic
 				return false;
 			}
 			model.Id = created.Id;
-			model.Path = await _fileStorage.SaveOriginalAsync(created.Id, file);
+			model.Path = await _fileStorage.SaveOriginalAsync(created.Id, created.Title, file, extension);
 			if (await _documentStorage.UpdateAsync(model) == null)
 			{
 				return false;

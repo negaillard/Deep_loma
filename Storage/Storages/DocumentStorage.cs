@@ -53,7 +53,7 @@ namespace Storage.Storages
 
 		public async Task<List<DocumentViewModel>> GetFilteredListAsync(DocumentSearchModel model)
 		{
-			if (string.IsNullOrEmpty(model.Title))
+			if (string.IsNullOrEmpty(model.Title) && !model.Status.HasValue)
 			{
 				return new();
 			}
@@ -63,10 +63,20 @@ namespace Storage.Storages
 			{
 				query = query.Where(x => !x.IsDeleted);
 			}
-			return await query
+			if (!string.IsNullOrEmpty(model.Title))
+			{
+				return await query
 				.Where(x => x.Title.Contains(model.Title))
 				.Select(x => x.GetViewModel)
 				.ToListAsync();
+			}
+			else
+			{
+				return await query
+				.Where(x => x.Status == model.Status)
+				.Select(x => x.GetViewModel)
+				.ToListAsync();
+			}
 		}
 
 		public async Task<List<DocumentViewModel>> GetFullListAsync()

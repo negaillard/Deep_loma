@@ -64,22 +64,30 @@ namespace API.Controllers
 		[AuthorizeDocument]
 		[HttpPost]
 		[RequestSizeLimit(100_000_000)]
-		public async Task<IActionResult> Create([FromForm] CreateDocumentRequest request)
+		public async Task<IActionResult> Create(
+			[FromForm] string title,
+			[FromForm] string description,
+			[FromForm] List<int> userIds,
+			IFormFile? file)
 		{
 			try
 			{
-				if (request.File == null || request.File.Length == 0)
+				if (file == null || file.Length == 0)
 				{
 					return BadRequest("Не передан файл документа");
 				}
 
 				var user = HttpContext.Items["User"] as UserViewModel;
+				if (user == null)
+				{
+					return Unauthorized("Требуется авторизация");
+				}
 
 				var model = new DocumentBindingModel
 				{
-					Title = request.Title,
-					Description = request.Description,
-					UserIds = request.UserIds,
+					Title = title,
+					Description = description,
+					UserIds = userIds,
 					CreatedByUserId = user?.Id ?? 0,
 					CreatedAt = DateTime.UtcNow,
 					Status = DocumentStatus.NOT_SIGNED,
@@ -87,8 +95,9 @@ namespace API.Controllers
 				};
 
 				_logger.LogInformation("Попытка создания документа '{Title}'", model.Title);
-				using var stream = request.File.OpenReadStream();
-				if (!await _documentLogic.CreateAsync(model, stream))
+				string extension = Path.GetExtension(file.FileName);
+				using var stream = file.OpenReadStream();
+				if (!await _documentLogic.CreateAsync(model, stream, extension))
 				{
 					_logger.LogWarning("Документ '{Title}' не был создан", model.Title);
 					return BadRequest("Ошибка при создании документа");
@@ -199,13 +208,5 @@ namespace API.Controllers
 				return BadRequest("Ошибка при скачивании документа " + ex.Message);
 			}
 		}
-	}
-
-	public class CreateDocumentRequest
-	{
-		public string Title { get; set; } = string.Empty;
-		public string Description { get; set; } = string.Empty;
-		public List<int> UserIds { get; set; } = new();
-		public IFormFile File { get; set; } = null!;
 	}
 }

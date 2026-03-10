@@ -8,11 +8,27 @@ using Contracts.StorageContracts;
 using FileStorage;
 using Logic;
 using Logic.Authentication;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.OpenApi.Models;
 using Models;
 using Storage.Storages;
 
+AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
+{
+	Console.WriteLine($"[FATAL] UnhandledException: {e.ExceptionObject}");
+};
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+	options.Limits.MaxRequestBodySize = 100_000_000; // 100 MB
+});
+
+builder.Services.Configure<FormOptions>(options =>
+{
+	options.MultipartBodyLengthLimit = 100_000_000; // 100 MB
+});
 
 builder.Services.AddStackExchangeRedisCache(options =>
 {
@@ -24,7 +40,7 @@ builder.Services.AddSwaggerGen(options =>
 {
 	options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
 	{
-		Description = "¬ведите токен в формате: Bearer {token}",
+		Description = "??????? ????? ? ???????: Bearer {token}",
 		Name = "Authorization",
 		In = ParameterLocation.Header,
 		Type = SecuritySchemeType.ApiKey,
@@ -86,7 +102,6 @@ else
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
@@ -96,6 +111,36 @@ if (app.Environment.IsDevelopment())
 	app.UseSwagger();
 	app.UseSwaggerUI();
 }
+
+app.Use(async (context, next) =>
+{
+	var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+	logger.LogWarning(">>> CANARY: {Method} {Path} ContentType={CT} ContentLength={CL}",
+		context.Request.Method,
+		context.Request.Path,
+		context.Request.ContentType,
+		context.Request.ContentLength);
+	try
+	{
+		await next(context);
+		logger.LogWarning(">>> CANARY DONE: {StatusCode}", context.Response.StatusCode);
+	}
+	catch (Exception ex)
+	{
+		logger.LogError(ex, ">>> CANARY CAUGHT EXCEPTION: {Message}", ex.Message);
+		throw;
+	}
+});
+
+app.UseExceptionHandler(errorApp =>
+{
+	errorApp.Run(async context =>
+	{
+		context.Response.StatusCode = 500;
+		context.Response.ContentType = "application/json";
+		await context.Response.WriteAsJsonAsync(new { error = "?????????? ?????? ???????" });
+	});
+});
 
 app.UseHttpsRedirection();
 

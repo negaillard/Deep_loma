@@ -13,12 +13,13 @@ namespace FileStorage
 				?? throw new InvalidOperationException("FileStorage:RootPath не задан в конфигурации");
 		}
 
-		public async Task<string> SaveOriginalAsync(int documentId, Stream stream)
+		public async Task<string> SaveOriginalAsync(int documentId, string title, Stream stream, string extension)
 		{
-			var folder = Path.Combine(_rootPath, "documents", documentId.ToString());
+			var safeTitle = SanitizeFolderName(title);
+			var folder = Path.Combine(_rootPath, "documents", safeTitle);
 			Directory.CreateDirectory(folder);
 
-			var filePath = Path.Combine(folder, "original.pdf");
+			var filePath = Path.Combine(folder, $"original{extension}");
 
 			using var fileStream = File.Create(filePath);
 			await stream.CopyToAsync(fileStream);
@@ -92,6 +93,28 @@ namespace FileStorage
 		private string GetRelativePath(string fullPath)
 		{
 			return Path.GetRelativePath(_rootPath, fullPath);
+		}
+
+		public static string SanitizeFolderName(string title)
+		{
+			if (string.IsNullOrWhiteSpace(title))
+				return "document";
+
+			var invalidChars = Path.GetInvalidFileNameChars();
+
+			var cleaned = new string(title
+				.Where(c => !invalidChars.Contains(c))
+				.ToArray());
+
+			cleaned = cleaned.Trim();
+
+			if (cleaned.Length > 100)
+				cleaned = cleaned.Substring(0, 100);
+
+			if (string.IsNullOrWhiteSpace(cleaned))
+				cleaned = "document";
+
+			return cleaned;
 		}
 	}
 }

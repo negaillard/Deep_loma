@@ -1,4 +1,4 @@
-﻿using API.Authorization;
+using API.Authorization;
 using Contracts.BindingModels;
 using Contracts.LogicContracts;
 using Contracts.SearchModels;
@@ -9,19 +9,42 @@ using System;
 
 namespace API.Controllers
 {
-	[Route("api/documents")]
+	[Route("api/[controller]")]
 	[ApiController]
-	public class DocumentSigningController : ControllerBase
+	public class SigningController : ControllerBase
 	{
 		private readonly IDocumentUserLogic _documentUserLogic;
-		private readonly ILogger<DocumentSigningController> _logger;
+		private readonly IUserLogic _userLogic;
+		private readonly ILogger<SigningController> _logger;
 
-		public DocumentSigningController(
+		public SigningController(
 			IDocumentUserLogic documentUserLogic,
-			ILogger<DocumentSigningController> logger)
+			IUserLogic userLogic,
+			ILogger<SigningController> logger)
 		{
 			_documentUserLogic = documentUserLogic;
+			_userLogic = userLogic;
 			_logger = logger;
+		}
+
+		[AuthorizeSigner]
+		[HttpGet("{id}/signers")]
+		public async Task<IActionResult> GetSigners(int id)
+		{
+			_logger.LogInformation($"Получение подписантов для документа {id}");
+			var documentUsers = await _documentUserLogic.ReadListAsync(
+				new DocumentUserSearchModel { DocumentId = id });
+
+			if (documentUsers == null)
+				return Ok(new List<object>());
+
+			foreach (var du in documentUsers)
+			{
+				var user = await _userLogic.ReadElementAsync(new UserSearchModel { Id = du.UserId });
+				du.UserFullname = user?.Fullname;
+			}
+
+			return Ok(documentUsers);
 		}
 
 		[AuthorizeSigner]

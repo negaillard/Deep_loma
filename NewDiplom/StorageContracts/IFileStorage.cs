@@ -8,7 +8,7 @@ namespace Contracts.StorageContracts
 {
 	public interface IFileStorage
 	{
-		Task<string> SaveOriginalAsync(int documentId, Stream stream);
+		Task<string> SaveOriginalAsync(int documentId, string title, Stream stream, string extension);
 		Task<string> SaveSignatureAsync(int documentId, int signatureId, Stream stream);
 		Task<Stream> GetFileAsync(string relativePath);
 		Task DeleteDocumentFolderAsync(int documentId);

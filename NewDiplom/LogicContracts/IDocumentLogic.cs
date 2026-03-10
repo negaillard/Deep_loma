@@ -9,7 +9,7 @@ namespace Contracts.LogicContracts
 		Task<List<DocumentViewModel>?> ReadListAsync(DocumentSearchModel? model);
 		Task<List<DocumentViewModel>?> ReadPagedListAsync(DocumentSearchModel model);
 		Task<DocumentViewModel?> ReadElementAsync(DocumentSearchModel model);
-		Task<bool> CreateAsync(DocumentBindingModel model, Stream file);
+		Task<bool> CreateAsync(DocumentBindingModel model, Stream file, string extension);
 		Task<bool> UpdateAsync(DocumentBindingModel model);
 		Task<bool> DeleteAsync(DocumentBindingModel model);
 	}

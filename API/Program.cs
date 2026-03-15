@@ -1,4 +1,5 @@
 using API.Authorization;
+using API.Controllers;
 using API.Seeding;
 using Auth.Authentication;
 using Contracts.BindingModels.Authentication;
@@ -29,6 +30,12 @@ builder.Services.Configure<FormOptions>(options =>
 {
 	options.MultipartBodyLengthLimit = 100_000_000; // 100 MB
 });
+
+builder.Services.Configure<FileUploadPolicy>(
+	builder.Configuration.GetSection("FileUploadPolicy"));
+
+builder.Services.Configure<AntivirusOptions>(
+	builder.Configuration.GetSection("Antivirus"));
 
 builder.Services.AddStackExchangeRedisCache(options =>
 {
@@ -78,6 +85,7 @@ builder.Services.AddScoped<IDocumentLogic, DocumentLogic>();
 builder.Services.AddScoped<IDocumentUserLogic, DocumentUserLogic>();
 builder.Services.AddScoped<ICertificateLogic, CertificateLogic>();
 builder.Services.AddScoped<ISignatureLogic, SignatureLogic>();
+builder.Services.AddScoped<IAntivirusService, ClamAvService>();
 
 builder.Services.AddScoped<IUserStorage, UserStorage>();
 builder.Services.AddScoped<IRoleStorage, RoleStorage>();

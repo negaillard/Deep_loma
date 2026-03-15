@@ -7,9 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MailKit" Version="4.14.1" />
+    <PackageReference Include="MailKit" Version="4.15.1" />
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="8.0.16" />
-    <PackageReference Include="MimeKit" Version="4.14.0" />
+    <PackageReference Include="MimeKit" Version="4.15.1" />
     <PackageReference Include="StackExchange.Redis" Version="2.10.1" />
   </ItemGroup>
 

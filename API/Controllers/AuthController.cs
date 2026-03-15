@@ -42,12 +42,12 @@ namespace API.Controllers
 
 				if (user == null)
 				{
-					return BadRequest(new { error = "Пользователь с таким логином не найден" });
+					return BadRequest("Пользователь с таким логином не найден");
 				}
 
 				if (!IsAppTypeAllowed(user.SystemRole, request.appType))
 				{
-					return BadRequest(new { error = "Нет доступа к выбранному приложению" });
+					return BadRequest("Нет доступа к выбранному приложению");
 				}
 
 				var result = await _codeVerificationLogic.SendCodeAsync(
@@ -56,7 +56,7 @@ namespace API.Controllers
 
 				if (!result.success)
 				{
-					return BadRequest(new { error = result.message });
+					return BadRequest(result.message);
 				}
 
 				_logger.LogInformation($"Код входа отправлен на: {user.Email}");
@@ -65,7 +65,7 @@ namespace API.Controllers
 			catch (Exception ex)
 			{
 				_logger.LogError(ex, "Ошибка при отправке кода входа");
-				return BadRequest(new { error = "Ошибка сервера" });
+				return BadRequest("Ошибка сервера");
 			}
 		}
 
@@ -93,14 +93,14 @@ namespace API.Controllers
 
 				if (user == null)
 				{
-					return BadRequest(new { error = "Ошибка при получении пользователя" });
+					return BadRequest("Ошибка при получении пользователя");
 				}
 
 				var codeResult = await _codeVerificationLogic.VerifyCodeAsync(user.Email, request.Code);
 
 				if (!codeResult.success)
 				{
-					return BadRequest(new { error = codeResult.message });
+					return BadRequest(codeResult.message);
 				}
 
 				var sessionId = await _sessionService.CreateSessionAsync(user.Id, user.Login);
@@ -119,7 +119,7 @@ namespace API.Controllers
 			catch (Exception ex)
 			{
 				_logger.LogError(ex, "Ошибка при подтверждении входа");
-				return BadRequest(new { error = "Ошибка сервера" });
+				return BadRequest("Ошибка сервера");
 			}
 		}
 

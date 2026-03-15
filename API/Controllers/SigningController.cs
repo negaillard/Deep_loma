@@ -7,6 +7,9 @@ using Microsoft.AspNetCore.Mvc;
 using Models;
 using System;
 
+// здесь происходит только метаподписание документов, сама подпись не генерируется
+// это надо добавить. то есть сделать вызов судя по всему нового микросервиса. 
+
 namespace API.Controllers
 {
 	[Route("api/[controller]")]

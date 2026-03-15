@@ -7,6 +7,7 @@ using Contracts.StorageContracts;
 using Contracts.ViewModels;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using Models;
 using System;
 using System.IO;
@@ -20,14 +21,20 @@ namespace API.Controllers
 		private readonly IDocumentLogic _documentLogic;
 		private readonly IFileStorage _fileStorage;
 		private readonly ILogger<DocumentsController> _logger;
+		private readonly IAntivirusService _antivirus;
+		private readonly FileUploadPolicy _filePolicy;
 
 		public DocumentsController(
 			IDocumentLogic documentLogic,
 			IFileStorage fileStorage,
+			IAntivirusService antivirus,
+			IOptions<FileUploadPolicy> filePolicy,
 			ILogger<DocumentsController> logger)
 		{
 			_documentLogic = documentLogic;
 			_fileStorage = fileStorage;
+			_antivirus = antivirus;
+			_filePolicy = filePolicy.Value;
 			_logger = logger;
 		}
 
@@ -82,6 +89,29 @@ namespace API.Controllers
 				{
 					return Unauthorized("Требуется авторизация");
 				}
+				/// проверка расширений
+				string extension = Path.GetExtension(file.FileName).ToLower();
+
+				if (!_filePolicy.AllowedExtensions.Contains(extension))
+				{
+					_logger.LogWarning("Попытка загрузки запрещенного типа файла: {Ext}", extension);
+					return BadRequest("Тип файла запрещён политикой безопасности");
+				}
+
+				/// проверка на вирусы
+				using var stream = file.OpenReadStream();
+
+				_logger.LogInformation("Проверка файла на вирусы");
+
+				if (!await _antivirus.IsFileCleanAsync(stream))
+				{
+					_logger.LogWarning("Вирус обнаружен в файле {FileName}", file.FileName);
+					return BadRequest("Файл содержит вирус");
+				}
+
+				stream.Position = 0;
+				/// проверка закончена
+
 
 				var model = new DocumentBindingModel
 				{
@@ -95,15 +125,15 @@ namespace API.Controllers
 				};
 
 				_logger.LogInformation("Попытка создания документа '{Title}'", model.Title);
-				string extension = Path.GetExtension(file.FileName);
-				using var stream = file.OpenReadStream();
+				//string extension = Path.GetExtension(file.FileName);
+				//using var stream = file.OpenReadStream();
 				if (!await _documentLogic.CreateAsync(model, stream, extension))
 				{
 					_logger.LogWarning("Документ '{Title}' не был создан", model.Title);
 					return BadRequest("Ошибка при создании документа");
 				}
 				_logger.LogInformation("Документ '{Title}' успешно создан", model.Title);
-				return Ok("документ создан");
+				return Ok("Документ создан");
 			}
 			catch (Exception ex)
 			{
@@ -119,11 +149,11 @@ namespace API.Controllers
 			{
 				if (!await _documentLogic.UpdateAsync(model))
 				{
-					_logger.LogWarning($"документ c id{model.Id} не был обновлен");
+					_logger.LogWarning($"Документ c id{model.Id} не был обновлен");
 					return BadRequest("Ошибка при обновлении документа");
 				}
-				_logger.LogInformation($"документ c id{model.Id} был обновлен");
-				return Ok("документ обновлён");
+				_logger.LogInformation($"Документ c id{model.Id} был обновлен");
+				return Ok("Документ обновлён");
 			}
 			catch (Exception ex)
 			{
@@ -139,11 +169,11 @@ namespace API.Controllers
 			{
 				if (!await _documentLogic.DeleteAsync(new DocumentBindingModel { Id = id }))
 				{
-					_logger.LogWarning($"документ c id{id} не был удален");
+					_logger.LogWarning($"Документ c id{id} не был удален");
 					return BadRequest("Ошибка при удалении документа");
 				}
 				_logger.LogInformation($"документ c id{id} был удален");
-				return Ok("документ удалён");
+				return Ok("Документ удалён");
 			}
 			catch (Exception ex)
 			{
@@ -208,5 +238,11 @@ namespace API.Controllers
 				return BadRequest("Ошибка при скачивании документа " + ex.Message);
 			}
 		}
+	}
+
+	public class FileUploadPolicy
+	{
+		public long MaxFileSize { get; set; }
+		public List<string> AllowedExtensions { get; set; } = new();
 	}
 }

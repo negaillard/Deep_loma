@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -12,5 +12,6 @@ namespace Models
 		int DocumentId { get; }
 		SigningStatus SigningStatus { get; }
 		DateTime? AssignedAt { get; }
+		int Order { get; }
 	}
 }

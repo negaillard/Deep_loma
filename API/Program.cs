@@ -9,6 +9,7 @@ using Contracts.StorageContracts;
 using FileStorage;
 using Logic;
 using Logic.Authentication;
+using MassTransit;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.OpenApi.Models;
 using Models;
@@ -21,6 +22,7 @@ AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
 
 var builder = WebApplication.CreateBuilder(args);
 
+/// ����������� ����������� ������
 builder.WebHost.ConfigureKestrel(options =>
 {
 	options.Limits.MaxRequestBodySize = 100_000_000; // 100 MB
@@ -31,18 +33,22 @@ builder.Services.Configure<FormOptions>(options =>
 	options.MultipartBodyLengthLimit = 100_000_000; // 100 MB
 });
 
+/// �������� ����������� ������
 builder.Services.Configure<FileUploadPolicy>(
 	builder.Configuration.GetSection("FileUploadPolicy"));
 
+/// ���������
 builder.Services.Configure<AntivirusOptions>(
 	builder.Configuration.GetSection("Antivirus"));
 
+/// �����
 builder.Services.AddStackExchangeRedisCache(options =>
 {
 	options.Configuration = builder.Configuration.GetConnectionString("Redis");
 	options.InstanceName = builder.Configuration["Redis:InstanceName"];
 });
 
+/// ������� � �����������
 builder.Services.AddSwaggerGen(options =>
 {
 	options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -71,14 +77,16 @@ builder.Services.AddSwaggerGen(options =>
 
 });
 
+/// ������������� �� appsettings
 builder.Services.Configure<RedisSettings>(builder.Configuration.GetSection("Redis"));
-
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 
+/// ����������� ����������� �������� ����������� � ��������������
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ICodeVerificationLogic, CodeVerificationLogic>();
 builder.Services.AddScoped<ISessionService, SessionService>();
 
+/// ����������� ������
 builder.Services.AddScoped<IUserLogic, UserLogic>();
 builder.Services.AddScoped<IRoleLogic, RoleLogic>();
 builder.Services.AddScoped<IDocumentLogic, DocumentLogic>();
@@ -87,6 +95,7 @@ builder.Services.AddScoped<ICertificateLogic, CertificateLogic>();
 builder.Services.AddScoped<ISignatureLogic, SignatureLogic>();
 builder.Services.AddScoped<IAntivirusService, ClamAvService>();
 
+/// ����������� ������������
 builder.Services.AddScoped<IUserStorage, UserStorage>();
 builder.Services.AddScoped<IRoleStorage, RoleStorage>();
 builder.Services.AddScoped<IDocumentStorage, DocumentStorage>();
@@ -94,8 +103,10 @@ builder.Services.AddScoped<IDocumentUserStorage, DocumentUserStorage>();
 builder.Services.AddScoped<ICertificateStorage, CertificateStorage>();
 builder.Services.AddScoped<ISignatureStorage, SignatureStorage>();
 
+/// ����������� ��������� ���������
 builder.Services.AddScoped<IFileStorage, LocalFileStorage>();
 
+/// ����� ���� ������ �� ��������
 var certificateMode = builder.Configuration.GetValue<CertificateMode>("AppMode");
 
 if (certificateMode == CertificateMode.Internal)
@@ -107,6 +118,19 @@ else
 	//builder.Services.AddScoped<ICertificateGeneratorLogic, CryptoProCertificateImporter>();
 }
 
+/// MASS TRANSIT ��� ���������� ��������� � �������
+/// ������������� ����� � exchange �� �������� ���������
+builder.Services.AddMassTransit(x =>
+{
+	x.UsingRabbitMq((context, cfg) =>
+	{
+		cfg.Host(builder.Configuration["RabbitMQ:Host"] ?? "localhost", "/", h =>
+		{
+			h.Username(builder.Configuration["RabbitMQ:Username"] ?? "guest");
+			h.Password(builder.Configuration["RabbitMQ:Password"] ?? "guest");
+		});
+	});
+});
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

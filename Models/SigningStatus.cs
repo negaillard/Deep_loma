@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,8 +8,9 @@ namespace Models
 {
 	public enum SigningStatus
 	{
-		NOT_SIGNED,
-		SIGNED,
-		DECLINED
+		NOT_SIGNED = 0,
+		SIGNED = 1,
+		DECLINED = 2,
+		PENDING = 3
 	}
 }

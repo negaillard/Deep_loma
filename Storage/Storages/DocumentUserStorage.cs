@@ -1,4 +1,4 @@
-﻿using Contracts.BindingModels;
+using Contracts.BindingModels;
 using Contracts.SearchModels;
 using Contracts.StorageContracts;
 using Contracts.ViewModels;
@@ -130,6 +130,7 @@ namespace Storage.Storages
 		}
 		/// здесь ТОЛЬКО обновление статуса документа, НЕ статуса ДОКУМЕНТ-ЮЗЕР. 
 		/// ОБНОВЛЕНИЕ СТАТУСА ДОКУМЕНТ-ЮЗЕР ВЫШЕ !!!
+		/// Реальные Signature-записи создаёт SigningService после криптографического подписания.
 		private async Task UpdateDocumentStatusAsync(StorageContext context, int documentId)
 		{
 			var document = await context.Documents.FirstOrDefaultAsync(x => x.Id == documentId);
@@ -152,39 +153,11 @@ namespace Storage.Storages
 			}
 			var statuses = documentUsers.Select(x => x.SigningStatus).ToList();
 			DocumentStatus newStatus;
-			var signaturesAdded = false;
 			if (statuses.All(x => x == SigningStatus.SIGNED))
 			{
 				newStatus = DocumentStatus.SIGNED;
-				var existingSignatures = await context.Signatures
-					.Where(x => x.DocumentId == documentId && !x.IsDeleted)
-					.Select(x => x.Id)
-					.ToListAsync();
-				if (existingSignatures.Count == 0)
-				{
-					var userIds = documentUsers.Select(x => x.UserId).Distinct().ToList();
-					var userCertificates = await context.Users
-						.Where(x => userIds.Contains(x.Id))
-						.Select(x => new { x.Id, x.CertificateId })
-						.ToDictionaryAsync(x => x.Id, x => x.CertificateId);
-					var signatures = userIds.Select(userId =>
-					{
-						var certificateId = userCertificates.TryGetValue(userId, out var value) ? value : 0;
-						return new Signature
-						{
-							SignatureValue = string.Empty,
-							CerificateId = certificateId,
-							SignedAt = DateTime.UtcNow,
-							UserId = userId,
-							DocumentId = documentId,
-							IsDeleted = false
-						};
-					}).ToList();
-					await context.Signatures.AddRangeAsync(signatures);
-					signaturesAdded = true;
-				}
 			}
-			else if (statuses.Any(x => x == SigningStatus.SIGNED))
+			else if (statuses.Any(x => x == SigningStatus.SIGNED || x == SigningStatus.PENDING))
 			{
 				newStatus = DocumentStatus.PARTLY_SIGNED;
 			}
@@ -192,13 +165,9 @@ namespace Storage.Storages
 			{
 				newStatus = DocumentStatus.NOT_SIGNED;
 			}
-			var statusChanged = document.Status != newStatus;
-			if (statusChanged)
+			if (document.Status != newStatus)
 			{
 				document.Status = newStatus;
-			}
-			if (statusChanged || signaturesAdded)
-			{
 				await context.SaveChangesAsync();
 			}
 		}

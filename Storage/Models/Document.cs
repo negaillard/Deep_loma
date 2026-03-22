@@ -1,4 +1,4 @@
-﻿using Contracts.BindingModels;
+using Contracts.BindingModels;
 using Contracts.ViewModels;
 using Models;
 using System;
@@ -26,6 +26,8 @@ namespace Storage.Models
 		[Required]
 		public bool IsDeleted { get; set; }
 		[Required]
+		public bool IsSequential { get; set; }
+		[Required]
 		public int CreatedByUserId { get; set; } 
 		public virtual User CreatedUser { get; set; }
 
@@ -48,6 +50,7 @@ namespace Storage.Models
 				CreatedByUserId = model.CreatedByUserId,
 				Status = model.Status,
 				IsDeleted = model.IsDeleted,
+				IsSequential = model.IsSequential,
 			};
 		}
 		public static Document Create(DocumentViewModel model)
@@ -62,6 +65,7 @@ namespace Storage.Models
 				CreatedByUserId = model.CreatedByUserId,
 				Status = model.Status,
 				IsDeleted = model.IsDeleted,
+				IsSequential = model.IsSequential,
 			};
 		}
 		public void Update(DocumentBindingModel model)
@@ -75,6 +79,7 @@ namespace Storage.Models
 			Path = model.Path;
 			Status = model.Status;
 			IsDeleted = model.IsDeleted;
+			IsSequential = model.IsSequential;
 		}
 		public DocumentViewModel GetViewModel => new()
 		{
@@ -86,6 +91,7 @@ namespace Storage.Models
 			CreatedByUserId = CreatedByUserId,
 			Status = Status,
 			IsDeleted = IsDeleted,
+			IsSequential = IsSequential,
 		};
 	}
 }

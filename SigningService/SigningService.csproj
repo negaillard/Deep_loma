@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-SigningService-c5e37ee9-846d-41f6-8eca-6e8e2c625ee1</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MassTransit.RabbitMQ" Version="9.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.5" />
+    <PackageReference Include="CryptoPro.Security.Cryptography" Version="2026.2.18" />
+    <PackageReference Include="CryptoPro.Security.Cryptography.Pkcs" Version="2026.2.18" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Storage\Storage.csproj" />
+    <ProjectReference Include="..\FileStorage\FileStorage.csproj" />
+    <ProjectReference Include="..\NewDiplom\Contracts.csproj" />
+    <ProjectReference Include="..\Models\Models.csproj" />
+    <ProjectReference Include="..\MessageContracts\MessageContracts.csproj" />
+  </ItemGroup>
+</Project>

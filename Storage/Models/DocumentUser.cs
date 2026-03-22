@@ -1,4 +1,4 @@
-﻿using Contracts.BindingModels;
+using Contracts.BindingModels;
 using Contracts.ViewModels;
 using Models;
 using System.ComponentModel.DataAnnotations;
@@ -17,6 +17,11 @@ namespace Storage.Models
 		[Required]
 		public SigningStatus SigningStatus { get; set; }
 		public DateTime? AssignedAt { get; set; }
+		/// <summary>
+		/// Порядковый номер подписи при последовательном режиме (1, 2, 3...).
+		/// 0 означает что документ не последовательный.
+		/// </summary>
+		public int Order { get; set; }
 
 		public static DocumentUser? Create(DocumentUserBindingModel model)
 		{
@@ -31,6 +36,7 @@ namespace Storage.Models
 				DocumentId = model.DocumentId,
 				SigningStatus = model.SigningStatus,
 				AssignedAt = model.AssignedAt,
+				Order = model.Order,
 			};
 		}
 
@@ -42,6 +48,7 @@ namespace Storage.Models
 			}
 			SigningStatus = model.SigningStatus;
 			AssignedAt = model.AssignedAt;
+			Order = model.Order;
 		}
 
 		public DocumentUserViewModel GetViewModel => new()
@@ -51,6 +58,7 @@ namespace Storage.Models
 			DocumentId = DocumentId,
 			SigningStatus = SigningStatus,
 			AssignedAt = AssignedAt,
+			Order = Order,
 		};
 	}
 }

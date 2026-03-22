@@ -33,12 +33,15 @@
                 <div class="card-body">
                     <form method="post" asp-page-handler="Upload" enctype="multipart/form-data" id="uploadDocForm">
 
-                        <div class="mb-2">
+                        <div class="mb-2" id="titleBlock">
                             <label class="form-label" style="font-size:0.82rem;font-weight:600;color:#374151;">
-                                Название <span class="text-danger">*</span>
+                                Название <span class="text-danger" id="titleRequired">*</span>
                             </label>
-                            <input asp-for="Title" class="form-control form-control-sm"
+                            <input asp-for="Title" id="titleInput" class="form-control form-control-sm"
                                    placeholder="Введите название документа" />
+                            <div id="titleMultiHint" style="display:none;font-size:0.72rem;color:#6b7280;margin-top:0.25rem;">
+                                При нескольких файлах будет использовано имя файла. Поле — необязательный префикс
+                            </div>
                         </div>
 
                         <div class="mb-2">
@@ -53,10 +56,27 @@
                             <label class="form-label" style="font-size:0.82rem;font-weight:600;color:#374151;">
                                 Файл <span class="text-danger">*</span>
                             </label>
-                            <input asp-for="UploadedFile" type="file" class="form-control form-control-sm"
-                                   accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg" />
+                            <input id="fileInput" name="UploadedFile" type="file"
+                                   class="form-control form-control-sm"
+                                   accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg" multiple />
                             <div style="font-size:0.72rem; color:#9ca3af; margin-top:0.25rem;">
-                                PDF, Word, Excel, изображения
+                                PDF, Word, Excel, изображения · можно выбрать несколько
+                            </div>
+                            <div id="fileQueue" style="display:none; margin-top:0.5rem; border:1px solid #e5e7eb; border-radius:6px; overflow:hidden;"></div>
+                        </div>
+
+                        <div class="mb-2">
+                            <div class="form-check form-switch" style="padding-left:2.5rem;">
+                                <input type="hidden" name="IsSequential" value="false" />
+                                <input class="form-check-input" type="checkbox" id="isSequentialCheck"
+                                       name="IsSequential" value="true" style="cursor:pointer;" />
+                                <label class="form-check-label" for="isSequentialCheck"
+                                       style="font-size:0.82rem;font-weight:600;color:#374151;cursor:pointer;">
+                                    Последовательная подпись
+                                </label>
+                            </div>
+                            <div style="font-size:0.72rem; color:#9ca3af; margin-top:0.2rem; padding-left:2.5rem;">
+                                Каждый следующий подписант получит документ только после предыдущего
                             </div>
                         </div>
 
@@ -66,7 +86,7 @@
                             </label>
 
                             <!-- Selected signers display -->
-                            <div id="signerChips" class="mb-2" style="min-height:28px; display:flex; flex-wrap:wrap; gap:0.15rem;"></div>
+                            <div id="signerChips" class="mb-2" style="min-height:28px; display:flex; flex-wrap:wrap; gap:0.3rem;"></div>
 
                             <!-- Hidden inputs for selected IDs -->
                             <div id="signerInputs"></div>
@@ -77,12 +97,12 @@
                                        placeholder="Поиск по ФИО..." autocomplete="off" />
                                 <div id="searchResults" class="search-results" style="display:none;"></div>
                             </div>
-                            <div style="font-size:0.72rem; color:#9ca3af; margin-top:0.25rem;">
+                            <div id="signerHint" style="font-size:0.72rem; color:#9ca3af; margin-top:0.25rem;">
                                 Введите минимум 2 символа для поиска
                             </div>
                         </div>
 
-                        <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <button type="submit" id="submitBtn" class="btn btn-primary btn-sm w-100">
                             <i class="bi bi-send me-1"></i>Отправить на подпись
                         </button>
                     </form>
@@ -185,7 +205,8 @@
                                                     data-doc-status="@IndexModel.StatusLabel(doc.Status)"
                                                     data-doc-status-class="@IndexModel.StatusBadgeClass(doc.Status)"
                                                     data-doc-status-icon="@IndexModel.StatusIcon(doc.Status)"
-                                                    data-doc-date="@doc.CreatedAt.ToString("dd.MM.yyyy HH:mm")">
+                                                    data-doc-date="@doc.CreatedAt.ToString("dd.MM.yyyy HH:mm")"
+                                                    data-doc-sequential="@doc.IsSequential.ToString().ToLower()">
                                                 <i class="bi bi-eye"></i>
                                             </button>
                                             <a asp-page-handler="Download"
@@ -316,14 +337,155 @@
 <script>
 
     // ── User search & signer chips ────────────────────────────────────────
-    const selectedSigners = new Map(); // id → { id, fullname, login }
+    let signerOrder = [];
+    const signersMap = new Map();
 
-    const searchInput   = document.getElementById('userSearchInput');
-    const searchResults = document.getElementById('searchResults');
-    const signerChips   = document.getElementById('signerChips');
-    const signerInputs  = document.getElementById('signerInputs');
+    const sequentialCheck = document.getElementById('isSequentialCheck');
+    const searchInput     = document.getElementById('userSearchInput');
+    const searchResults   = document.getElementById('searchResults');
+    const signerChips     = document.getElementById('signerChips');
+    const signerInputs    = document.getElementById('signerInputs');
+    const signerHint      = document.getElementById('signerHint');
+    const fileInput       = document.getElementById('fileInput');
+    const fileQueue       = document.getElementById('fileQueue');
+    const titleInput      = document.getElementById('titleInput');
+    const titleMultiHint  = document.getElementById('titleMultiHint');
+    const titleRequired   = document.getElementById('titleRequired');
+    const submitBtn       = document.getElementById('submitBtn');
+    const uploadForm      = document.getElementById('uploadDocForm');
 
-    let searchTimer = null;
+    let searchTimer  = null;
+    let isSequential = false;
+
+    // ── Sequential toggle ─────────────────────────────────────────────────
+    sequentialCheck.addEventListener('change', () => {
+        isSequential = sequentialCheck.checked;
+        signerHint.textContent = isSequential
+            ? 'Перетаскивайте стрелками для изменения порядка подписания'
+            : 'Введите минимум 2 символа для поиска';
+        renderChips();
+    });
+
+    // ── File input → queue ────────────────────────────────────────────────
+    fileInput.addEventListener('change', () => {
+        const files = Array.from(fileInput.files);
+        if (files.length > 1) {
+            titleInput.readOnly = true;
+            titleInput.style.background = '#f9fafb';
+            titleInput.placeholder = 'Необязательный префикс названия';
+            titleRequired.style.display = 'none';
+            titleMultiHint.style.display = 'block';
+            renderFileQueue(files);
+        } else {
+            titleInput.readOnly = false;
+            titleInput.style.background = '';
+            titleInput.placeholder = 'Введите название документа';
+            titleRequired.style.display = '';
+            titleMultiHint.style.display = 'none';
+            fileQueue.style.display = 'none';
+        }
+    });
+
+    function renderFileQueue(files) {
+        fileQueue.style.display = 'block';
+        fileQueue.innerHTML = files.map((f, i) =>
+            `<div id="fq-${i}" class="d-flex align-items-center gap-2 px-2 py-1"
+                  style="font-size:0.8rem;color:#374151;${i < files.length - 1 ? 'border-bottom:1px solid #f3f4f6;' : ''}">
+                <i class="bi bi-file-earmark" style="color:#9ca3af;flex-shrink:0;"></i>
+                <span class="text-truncate flex-grow-1">${f.name}</span>
+                <span id="fq-status-${i}" style="font-size:0.72rem;color:#9ca3af;white-space:nowrap;">ожидание</span>
+            </div>`
+        ).join('');
+    }
+
+    function setFileStatus(i, icon, text, color) {
+        const el = document.getElementById(`fq-status-${i}`);
+        if (el) el.innerHTML = `<i class="bi ${icon}" style="color:${color};"></i> ${text}`;
+    }
+
+    // ── Form submit — multi-file AJAX upload ──────────────────────────────
+    uploadForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const files = Array.from(fileInput.files);
+        const title = titleInput.value.trim();
+        const description = document.querySelector('[name="Description"]').value.trim();
+        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+
+        if (files.length === 0) { showUploadError('Выберите файл для загрузки'); return; }
+        if (files.length === 1 && !title) { showUploadError('Введите название документа'); return; }
+        if (signerOrder.length === 0) { showUploadError('Выберите хотя бы одного подписанта'); return; }
+
+        submitBtn.disabled = true;
+
+        let successCount = 0;
+        const errors = [];
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const docTitle = files.length === 1
+                ? title
+                : (title ? `${title} — ${nameWithoutExt(file.name)}` : nameWithoutExt(file.name));
+
+            submitBtn.innerHTML =
+                `<span class="spinner-border spinner-border-sm me-1"></span>` +
+                `Загрузка ${i + 1} из ${files.length}...`;
+
+            if (files.length > 1) setFileStatus(i, 'bi-hourglass-split', 'загрузка...', '#6b7280');
+
+            try {
+                const fd = new FormData();
+                fd.append('Title', docTitle);
+                fd.append('Description', description);
+                signerOrder.forEach(id => fd.append('SignerIds', id));
+                fd.append('IsSequential', isSequential ? 'true' : 'false');
+                fd.append('UploadedFile', file, file.name);
+                fd.append('__RequestVerificationToken', token);
+
+                const resp   = await fetch('?handler=UploadAjax', { method: 'POST', body: fd });
+                const result = await resp.json();
+
+                if (result.success) {
+                    successCount++;
+                    if (files.length > 1) setFileStatus(i, 'bi-check-circle-fill', 'готово', '#059669');
+                } else {
+                    errors.push(`${file.name}: ${result.message}`);
+                    if (files.length > 1) setFileStatus(i, 'bi-x-circle-fill', 'ошибка', '#dc2626');
+                }
+            } catch {
+                errors.push(`${file.name}: ошибка сети`);
+                if (files.length > 1) setFileStatus(i, 'bi-x-circle-fill', 'ошибка сети', '#dc2626');
+            }
+        }
+
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="bi bi-send me-1"></i>Отправить на подпись';
+
+        if (errors.length === 0) {
+            setTimeout(() => window.location.reload(), 600);
+        } else if (successCount > 0) {
+            showUploadError(`Загружено ${successCount} из ${files.length}. Ошибки: ${errors.join('; ')}`);
+        } else {
+            showUploadError(errors.join('; '));
+        }
+    });
+
+    function nameWithoutExt(name) {
+        const idx = name.lastIndexOf('.');
+        return idx > 0 ? name.slice(0, idx) : name;
+    }
+
+    function showUploadError(msg) {
+        let el = document.getElementById('uploadInlineError');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'uploadInlineError';
+            el.className = 'alert alert-danger d-flex align-items-center gap-2 mt-2 py-2';
+            el.style.fontSize = '0.82rem';
+            submitBtn.insertAdjacentElement('beforebegin', el);
+        }
+        el.innerHTML = `<i class="bi bi-exclamation-circle-fill flex-shrink-0"></i><span>${msg}</span>`;
+    }
 
     searchInput.addEventListener('input', () => {
         clearTimeout(searchTimer);
@@ -362,31 +524,64 @@
     }
 
     function addSigner(user) {
-        if (selectedSigners.has(user.id)) return;
-        selectedSigners.set(user.id, user);
+        if (signersMap.has(user.id)) return;
+        signersMap.set(user.id, user);
+        signerOrder.push(user.id);
         renderChips();
         searchInput.value = '';
         searchResults.style.display = 'none';
     }
 
     function removeSigner(id) {
-        selectedSigners.delete(id);
+        signersMap.delete(id);
+        signerOrder = signerOrder.filter(x => x !== id);
+        renderChips();
+    }
+
+    function moveSignerUp(id) {
+        const idx = signerOrder.indexOf(id);
+        if (idx <= 0) return;
+        [signerOrder[idx - 1], signerOrder[idx]] = [signerOrder[idx], signerOrder[idx - 1]];
+        renderChips();
+    }
+
+    function moveSignerDown(id) {
+        const idx = signerOrder.indexOf(id);
+        if (idx < 0 || idx >= signerOrder.length - 1) return;
+        [signerOrder[idx], signerOrder[idx + 1]] = [signerOrder[idx + 1], signerOrder[idx]];
         renderChips();
     }
 
     function renderChips() {
         signerChips.innerHTML = '';
         signerInputs.innerHTML = '';
-        selectedSigners.forEach((user, id) => {
-            // Chip
+        signerOrder.forEach((id, index) => {
+            const user = signersMap.get(id);
             const chip = document.createElement('span');
             chip.className = 'signer-chip';
-            chip.innerHTML = `<i class="bi bi-person-fill"></i>${user.fullname}<button type="button" class="remove-btn" onclick="removeSigner(${id})"><i class="bi bi-x"></i></button>`;
+
+            if (isSequential) {
+                const isFirst = index === 0;
+                const isLast  = index === signerOrder.length - 1;
+                chip.innerHTML =
+                    `<span style="display:inline-flex;align-items:center;justify-content:center;` +
+                    `width:18px;height:18px;background:#4f8ef7;color:#fff;border-radius:50%;` +
+                    `font-size:0.65rem;font-weight:700;flex-shrink:0;margin-right:0.3rem;">${index + 1}</span>` +
+                    `<i class="bi bi-person-fill"></i>${user.fullname}` +
+                    `<button type="button" class="remove-btn" title="Выше" ${isFirst ? 'disabled style="opacity:0.3;"' : ''} onclick="moveSignerUp(${id})"><i class="bi bi-arrow-up"></i></button>` +
+                    `<button type="button" class="remove-btn" title="Ниже" ${isLast  ? 'disabled style="opacity:0.3;"' : ''} onclick="moveSignerDown(${id})"><i class="bi bi-arrow-down"></i></button>` +
+                    `<button type="button" class="remove-btn" onclick="removeSigner(${id})"><i class="bi bi-x"></i></button>`;
+            } else {
+                chip.innerHTML =
+                    `<i class="bi bi-person-fill"></i>${user.fullname}` +
+                    `<button type="button" class="remove-btn" onclick="removeSigner(${id})"><i class="bi bi-x"></i></button>`;
+            }
+
             signerChips.appendChild(chip);
-            // Hidden input
+
             const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'SignerIds';
+            input.type  = 'hidden';
+            input.name  = 'SignerIds';
             input.value = id;
             signerInputs.appendChild(input);
         });
@@ -395,14 +590,15 @@
     // ── Document detail modal ─────────────────────────────────────────────
     const docDetailModal = document.getElementById('docDetailModal');
     docDetailModal.addEventListener('show.bs.modal', async function (event) {
-        const btn = event.relatedTarget;
-        const id          = btn.dataset.docId;
-        const title       = btn.dataset.docTitle;
-        const description = btn.dataset.docDescription;
-        const status      = btn.dataset.docStatus;
-        const statusClass = btn.dataset.docStatusClass;
-        const statusIcon  = btn.dataset.docStatusIcon;
-        const date        = btn.dataset.docDate;
+        const btn        = event.relatedTarget;
+        const id         = btn.dataset.docId;
+        const title      = btn.dataset.docTitle;
+        const description= btn.dataset.docDescription;
+        const status     = btn.dataset.docStatus;
+        const statusClass= btn.dataset.docStatusClass;
+        const statusIcon = btn.dataset.docStatusIcon;
+        const date       = btn.dataset.docDate;
+        const sequential = btn.dataset.docSequential === 'true';
 
         document.getElementById('docDetailTitle').textContent = title;
         document.getElementById('docDetailDate').textContent  = date;
@@ -425,20 +621,39 @@
         signersEl.innerHTML = '<div class="d-flex align-items-center gap-2" style="color:#9ca3af;"><div class="spinner-border spinner-border-sm"></div> Загрузка...</div>';
 
         try {
-            const resp = await fetch(`?handler=Signers&id=${id}`, {
-                headers: { 'Accept': 'application/json' }
-            });
+            const resp = await fetch(`?handler=Signers&id=${id}`, { headers: { 'Accept': 'application/json' } });
             if (resp.ok) {
-                const signers = await resp.json();
+                let signers = await resp.json();
                 if (signers.length === 0) {
                     signersEl.innerHTML = '<span style="color:#9ca3af;font-size:0.82rem;">Нет подписантов</span>';
                 } else {
-                    signersEl.innerHTML = signers.map(s => {
-                        const sc = s.signingStatus === 1 ? 'signed' : s.signingStatus === 2 ? 'declined' : 'not-signed';
-                        const si = s.signingStatus === 1 ? 'bi-check-circle' : s.signingStatus === 2 ? 'bi-x-circle' : 'bi-hourglass-split';
-                        const sl = s.signingStatus === 1 ? 'Подписан' : s.signingStatus === 2 ? 'Отклонил' : 'Ожидает';
+                    if (sequential) signers = signers.slice().sort((a, b) => a.order - b.order);
+
+                    signersEl.innerHTML = signers.map((s, idx) => {
+                        const isPending = s.signingStatus === 3;
+                        const sc = s.signingStatus === 1 ? 'signed'
+                                 : s.signingStatus === 2 ? 'declined'
+                                 : isPending            ? 'partly'
+                                 : 'not-signed';
+                        const si = s.signingStatus === 1 ? 'bi-check-circle'
+                                 : s.signingStatus === 2 ? 'bi-x-circle'
+                                 : isPending            ? 'bi-hourglass-top'
+                                 : 'bi-hourglass-split';
+                        const sl = s.signingStatus === 1 ? 'Подписан'
+                                 : s.signingStatus === 2 ? 'Отклонил'
+                                 : isPending            ? 'В обработке'
+                                 : 'Ожидает';
+
+                        const orderBadge = sequential
+                            ? `<span style="display:inline-flex;align-items:center;justify-content:center;` +
+                              `width:18px;height:18px;background:#e5e7eb;color:#374151;border-radius:50%;` +
+                              `font-size:0.65rem;font-weight:700;flex-shrink:0;margin-right:0.4rem;">${idx + 1}</span>`
+                            : '';
+
                         return `<div class="d-flex align-items-center justify-content-between py-1" style="border-bottom:1px solid #f3f4f6;">
-                            <span style="font-size:0.85rem; color:#374151;"><i class="bi bi-person-fill me-1" style="color:#9ca3af;"></i>${s.userFullname ?? ('Пользователь #' + s.userId)}</span>
+                            <span style="font-size:0.85rem;color:#374151;display:flex;align-items:center;">
+                                ${orderBadge}<i class="bi bi-person-fill me-1" style="color:#9ca3af;"></i>${s.userFullname ?? ('Пользователь #' + s.userId)}
+                            </span>
                             <span class="status-badge ${sc}" style="font-size:0.72rem;"><i class="bi ${si}"></i>${sl}</span>
                         </div>`;
                     }).join('');

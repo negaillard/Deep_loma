@@ -1,4 +1,4 @@
-﻿using Models;
+using Models;
 
 namespace Contracts.BindingModels
 {
@@ -12,6 +12,7 @@ namespace Contracts.BindingModels
 		public string Path { get; set; } = string.Empty;
 		public DocumentStatus Status { get; set; }
 		public bool IsDeleted { get; set; } = false;
+		public bool IsSequential { get; set; } = false;
 
 		public List<int> UserIds { get; set; } = new();
 	}

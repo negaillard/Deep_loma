@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-NotificationService-522cb596-d4e8-442c-8f90-8f22b8561f5f</UserSecretsId>
+    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+  </PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="MailKit" Version="4.15.1" />
+		<PackageReference Include="MimeKit" Version="4.15.1" />
+		<PackageReference Include="MassTransit.RabbitMQ" Version="9.0.1" />
+		<PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+	</ItemGroup>
+	
+  <ItemGroup>
+	  <ProjectReference Include="..\Storage\Storage.csproj" />
+	  <ProjectReference Include="..\Models\Models.csproj" />
+	  <ProjectReference Include="..\MessageContracts\MessageContracts.csproj" />
+	  <ProjectReference Include="..\NewDiplom\Contracts.csproj" />
+  </ItemGroup>
+</Project>

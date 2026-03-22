@@ -150,7 +150,7 @@ public class ApiClient
     }
 
     public async Task<(bool Success, string Message)> UploadDocument(
-        string title, string description, List<int> userIds, Stream fileStream, string fileName)
+        string title, string description, List<int> userIds, bool isSequential, Stream fileStream, string fileName)
     {
         try
         {
@@ -159,6 +159,7 @@ public class ApiClient
             content.Add(new StringContent(description), "description");
             foreach (var id in userIds)
                 content.Add(new StringContent(id.ToString()), "userIds");
+            content.Add(new StringContent(isSequential ? "true" : "false"), "isSequential");
             content.Add(new StreamContent(fileStream), "file", fileName);
 
             var response = await Client().PostAsync("api/documents", content);

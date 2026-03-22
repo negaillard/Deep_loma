@@ -15,5 +15,6 @@ namespace Contracts.ViewModels
 		public SigningStatus SigningStatus { get; set; }
 		public DateTime? AssignedAt { get; set; }
 		public string? UserFullname { get; set; }
+		public int Order { get; set; }
 	}
 }

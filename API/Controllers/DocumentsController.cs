@@ -5,6 +5,8 @@ using Contracts.LogicContracts;
 using Contracts.SearchModels;
 using Contracts.StorageContracts;
 using Contracts.ViewModels;
+using MassTransit;
+using MessageContracts;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -19,23 +21,29 @@ namespace API.Controllers
 	public class DocumentsController : ControllerBase
 	{
 		private readonly IDocumentLogic _documentLogic;
+		private readonly IDocumentUserLogic _documentUserLogic;
 		private readonly IFileStorage _fileStorage;
 		private readonly ILogger<DocumentsController> _logger;
 		private readonly IAntivirusService _antivirus;
 		private readonly FileUploadPolicy _filePolicy;
+		private readonly IPublishEndpoint _publishEndpoint;
 
 		public DocumentsController(
 			IDocumentLogic documentLogic,
+			IDocumentUserLogic documentUserLogic,
 			IFileStorage fileStorage,
 			IAntivirusService antivirus,
 			IOptions<FileUploadPolicy> filePolicy,
-			ILogger<DocumentsController> logger)
+			ILogger<DocumentsController> logger,
+			IPublishEndpoint publishEndpoint)
 		{
 			_documentLogic = documentLogic;
+			_documentUserLogic = documentUserLogic;
 			_fileStorage = fileStorage;
 			_antivirus = antivirus;
 			_filePolicy = filePolicy.Value;
 			_logger = logger;
+			_publishEndpoint = publishEndpoint;
 		}
 
 		[AuthorizeSigner]
@@ -68,14 +76,15 @@ namespace API.Controllers
 			}
 		}
 
-		[AuthorizeDocument]
-		[HttpPost]
-		[RequestSizeLimit(100_000_000)]
-		public async Task<IActionResult> Create(
-			[FromForm] string title,
-			[FromForm] string description,
-			[FromForm] List<int> userIds,
-			IFormFile? file)
+	[AuthorizeDocument]
+	[HttpPost]
+	[RequestSizeLimit(100_000_000)]
+	public async Task<IActionResult> Create(
+		[FromForm] string title,
+		[FromForm] string description,
+		[FromForm] List<int> userIds,
+		[FromForm] bool isSequential = false,
+		IFormFile? file = null)
 		{
 			try
 			{
@@ -122,6 +131,7 @@ namespace API.Controllers
 					CreatedAt = DateTime.UtcNow,
 					Status = DocumentStatus.NOT_SIGNED,
 					IsDeleted = false,
+					IsSequential = isSequential,
 				};
 
 				_logger.LogInformation("Попытка создания документа '{Title}'", model.Title);
@@ -133,6 +143,28 @@ namespace API.Controllers
 					return BadRequest("Ошибка при создании документа");
 				}
 				_logger.LogInformation("Документ '{Title}' успешно создан", model.Title);
+
+				if (isSequential)
+				{
+					// при последовательном режиме уведомляем только первого подписанта
+					await _publishEndpoint.Publish(new NotificationMessage(
+						UserId: model.UserIds[0],
+						Title: title,
+						RequestedAt: DateTime.UtcNow));
+				}
+				else
+				{
+					// иначе уведомляем всех
+					foreach (int userId in model.UserIds)
+					{
+						await _publishEndpoint.Publish(new NotificationMessage(
+							UserId: userId,
+							Title: title,
+							RequestedAt: DateTime.UtcNow));
+					}
+				}
+				
+
 				return Ok("Документ создан");
 			}
 			catch (Exception ex)
@@ -238,6 +270,75 @@ namespace API.Controllers
 				return BadRequest("Ошибка при скачивании документа " + ex.Message);
 			}
 		}
+
+	[AuthorizeSigner]
+	[HttpGet("get-for-sign")]
+	public async Task<IActionResult> GetDocumentsForSign(
+		[FromQuery] SigningStatus? signingStatus = null)
+	{
+		try
+		{
+			var user = HttpContext.Items["User"] as UserViewModel;
+			if (user == null)
+				return Unauthorized();
+
+			_logger.LogInformation(
+				"Получение документов для подписания пользователем {UserId}", user.Id);
+
+			var documentUsers = await _documentUserLogic.ReadListAsync(
+				new DocumentUserSearchModel
+				{
+					UserId = user.Id,
+					SigningStatus = signingStatus
+				});
+
+			if (documentUsers == null || documentUsers.Count == 0)
+				return Ok(new List<object>());
+
+			var result = new List<object>();
+
+			foreach (var du in documentUsers)
+			{
+				var document = await _documentLogic.ReadElementAsync(
+					new DocumentSearchModel { Id = du.DocumentId });
+
+				if (document == null || document.IsDeleted)
+					continue;
+
+				if (document.IsSequential && du.Order > 1)
+				{
+					var allSigners = await _documentUserLogic.ReadListAsync(
+						new DocumentUserSearchModel { DocumentId = du.DocumentId });
+
+					var hasUnfinishedPrevious = allSigners?.Any(s =>
+						s.Order < du.Order && s.SigningStatus != SigningStatus.SIGNED) ?? false;
+
+					if (hasUnfinishedPrevious)
+						continue;
+				}
+
+				result.Add(new
+				{
+					document.Id,
+					document.Title,
+					document.Description,
+					document.CreatedAt,
+					document.Status,
+					document.IsSequential,
+					UserSigningStatus = du.SigningStatus,
+					du.AssignedAt,
+					du.Order
+				});
+			}
+
+			return Ok(result);
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex, "Ошибка при получении документов для подписания");
+			return BadRequest("Ошибка при получении документов: " + ex.Message);
+		}
+	}
 	}
 
 	public class FileUploadPolicy

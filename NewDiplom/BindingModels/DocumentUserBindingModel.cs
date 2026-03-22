@@ -9,6 +9,7 @@ namespace Contracts.BindingModels
 		public int DocumentId { get; set; }
 		public SigningStatus SigningStatus { get; set; }
 		public DateTime? AssignedAt { get; set; }
+		public int Order { get; set; }
 	}
 }
 

@@ -22,7 +22,6 @@ namespace Logic
 
 		public async Task<bool> IsFileCleanAsync(Stream stream)
 		{
-			/// не обращается к этой хуйне, хост неизвестен ему
 			var result = await _clam.SendAndScanFileAsync(stream);
 
 			return result.Result == ClamScanResults.Clean;

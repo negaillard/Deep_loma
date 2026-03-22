@@ -1,4 +1,4 @@
-﻿using Models;
+using Models;
 
 namespace Contracts.ViewModels
 {
@@ -17,5 +17,6 @@ namespace Contracts.ViewModels
 
 		public DocumentStatus Status { get; set; }
 		public bool IsDeleted { get; set; }
+		public bool IsSequential { get; set; }
 	}
 }

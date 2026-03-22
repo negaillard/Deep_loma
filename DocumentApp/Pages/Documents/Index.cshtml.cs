@@ -30,6 +30,9 @@ public class IndexModel : PageModel
     public List<int> SignerIds { get; set; } = [];
 
     [BindProperty]
+    public bool IsSequential { get; set; }
+
+    [BindProperty]
     public IFormFile? UploadedFile { get; set; }
 
     public string? StatusFilter { get; set; }
@@ -93,7 +96,7 @@ public class IndexModel : PageModel
 
         using var stream = UploadedFile.OpenReadStream();
         var (success, message) = await _apiClient.UploadDocument(
-            Title.Trim(), Description.Trim(), SignerIds, stream, UploadedFile.FileName);
+            Title.Trim(), Description.Trim(), SignerIds, IsSequential, stream, UploadedFile.FileName);
 
         if (success)
             TempData["SuccessMessage"] = "Документ успешно отправлен на подпись";
@@ -101,6 +104,24 @@ public class IndexModel : PageModel
             TempData["ErrorMessage"] = $"Ошибка: {message}";
 
         return RedirectToPage();
+    }
+
+    public async Task<JsonResult> OnPostUploadAjaxAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Title))
+            return new JsonResult(new { success = false, message = "Введите название документа" });
+
+        if (UploadedFile == null || UploadedFile.Length == 0)
+            return new JsonResult(new { success = false, message = "Файл не выбран" });
+
+        if (SignerIds.Count == 0)
+            return new JsonResult(new { success = false, message = "Выберите хотя бы одного подписанта" });
+
+        using var stream = UploadedFile.OpenReadStream();
+        var (success, message) = await _apiClient.UploadDocument(
+            Title.Trim(), Description.Trim(), SignerIds, IsSequential, stream, UploadedFile.FileName);
+
+        return new JsonResult(new { success, message });
     }
 
     public async Task<IActionResult> OnPostDeleteAsync(int id)

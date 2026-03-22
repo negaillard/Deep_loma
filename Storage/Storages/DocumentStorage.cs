@@ -118,23 +118,29 @@ namespace Storage.Storages
 			await context.SaveChangesAsync();
 			if (model.UserIds != null && model.UserIds.Count > 0)
 			{
-				var userIds = model.UserIds.Distinct().ToList();
+				var userIds = model.IsSequential
+					? model.UserIds
+					: model.UserIds.Distinct().ToList();
+
 				var activeUserIds = await context.Users
 					.Where(x => userIds.Contains(x.Id) && x.IsActive)
 					.Select(x => x.Id)
 					.ToListAsync();
-				if (activeUserIds.Count != userIds.Count)
+				if (activeUserIds.Count != userIds.Distinct().Count())
 				{
 					throw new InvalidOperationException("Нельзя назначить неактивного пользователя на подписание");
 				}
-				var documentUsers = model.UserIds
-					.Distinct()
-					.Select(userId => new DocumentUser
+
+				// При последовательном режиме порядок в списке = порядок подписания (1-based).
+				// При параллельном режиме Order = 0 (очерёдности нет).
+				var documentUsers = userIds
+					.Select((userId, index) => new DocumentUser
 					{
 						UserId = userId,
 						DocumentId = newDocument.Id,
 						SigningStatus = SigningStatus.NOT_SIGNED,
 						AssignedAt = null,
+						Order = model.IsSequential ? index + 1 : 0,
 					})
 					.ToList();
 				await context.DocumentUsers.AddRangeAsync(documentUsers);

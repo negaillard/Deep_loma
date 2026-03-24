@@ -22,6 +22,8 @@ namespace API.Controllers
 	{
 		private readonly IDocumentLogic _documentLogic;
 		private readonly IDocumentUserLogic _documentUserLogic;
+		private readonly ISignatureStorage _signatureStorage;
+		private readonly IUserLogic _userLogic;
 		private readonly IFileStorage _fileStorage;
 		private readonly ILogger<DocumentsController> _logger;
 		private readonly IAntivirusService _antivirus;
@@ -31,6 +33,8 @@ namespace API.Controllers
 		public DocumentsController(
 			IDocumentLogic documentLogic,
 			IDocumentUserLogic documentUserLogic,
+			ISignatureStorage signatureStorage,
+			IUserLogic userLogic,
 			IFileStorage fileStorage,
 			IAntivirusService antivirus,
 			IOptions<FileUploadPolicy> filePolicy,
@@ -39,6 +43,8 @@ namespace API.Controllers
 		{
 			_documentLogic = documentLogic;
 			_documentUserLogic = documentUserLogic;
+			_signatureStorage = signatureStorage;
+			_userLogic = userLogic;
 			_fileStorage = fileStorage;
 			_antivirus = antivirus;
 			_filePolicy = filePolicy.Value;
@@ -338,6 +344,126 @@ namespace API.Controllers
 			_logger.LogError(ex, "Ошибка при получении документов для подписания");
 			return BadRequest("Ошибка при получении документов: " + ex.Message);
 		}
+	}
+
+	[AuthorizeDocument]
+	[HttpGet("{id}/verification-package")]
+	public async Task<IActionResult> GetVerificationPackage(int id)
+	{
+		try
+		{
+			var document = await _documentLogic.ReadElementAsync(new DocumentSearchModel { Id = id });
+			if (document == null || document.IsDeleted)
+				return NotFound("Документ не найден");
+
+			if (document.Status != DocumentStatus.SIGNED)
+				return BadRequest("Пакет верификации доступен только для полностью подписанных документов");
+
+			var signatures = await _signatureStorage.GetFilteredListAsync(
+				new SignatureSearchModel { DocumentId = id });
+
+			if (signatures == null || signatures.Count == 0)
+				return NotFound("Подписи для документа не найдены");
+
+			using var memoryStream = new MemoryStream();
+			using (var archive = new System.IO.Compression.ZipArchive(
+				memoryStream, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+			{
+				// оригинальный документ
+				await using (var docStream = await _fileStorage.GetFileAsync(document.Path))
+				{
+					var ext = Path.GetExtension(document.Path);
+					var entry = archive.CreateEntry($"document{ext}");
+					await using var entryStream = entry.Open();
+					await docStream.CopyToAsync(entryStream);
+				}
+
+				// подписи и сертификаты
+				foreach (var sig in signatures.Where(s => !s.IsDeleted))
+				{
+					var user = await _userLogic.ReadElementAsync(new UserSearchModel { Id = sig.UserId });
+					var safeName = SanitizeName(user?.Fullname ?? sig.UserId.ToString());
+
+					// файл подписи
+					if (!string.IsNullOrEmpty(sig.Path))
+					{
+						try
+						{
+							await using var sigStream = await _fileStorage.GetFileAsync(sig.Path);
+							var sigEntry = archive.CreateEntry($"signatures/{safeName}.sig");
+							await using var sigEntryStream = sigEntry.Open();
+							await sigStream.CopyToAsync(sigEntryStream);
+						}
+						catch (Exception ex)
+						{
+							_logger.LogWarning(ex, "Не удалось добавить файл подписи {Path}", sig.Path);
+						}
+					}
+
+					// публичный сертификат
+					if (!string.IsNullOrEmpty(sig.CertificatePath))
+					{
+						try
+						{
+							await using var cerStream = await _fileStorage.GetFileAsync(sig.CertificatePath);
+							var cerEntry = archive.CreateEntry($"certificates/{safeName}.cer");
+							await using var cerEntryStream = cerEntry.Open();
+							await cerStream.CopyToAsync(cerEntryStream);
+						}
+						catch (Exception ex)
+						{
+							_logger.LogWarning(ex, "Не удалось добавить сертификат {Path}", sig.CertificatePath);
+						}
+					}
+				}
+
+				// инструкция по верификации
+				var readmeEntry = archive.CreateEntry("README.txt");
+				await using var readmeStream = readmeEntry.Open();
+				await using var writer = new StreamWriter(readmeStream);
+				await writer.WriteAsync(BuildReadme(document.Title, signatures));
+			}
+
+			memoryStream.Position = 0;
+			var safeTitle = SanitizeName(document.Title);
+			return File(memoryStream.ToArray(),
+				"application/zip",
+				$"verification_{safeTitle}_{id}.zip");
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex, "Ошибка при формировании пакета верификации для документа {Id}", id);
+			return BadRequest("Ошибка при формировании пакета: " + ex.Message);
+		}
+	}
+
+	private static string SanitizeName(string name)
+	{
+		var invalid = Path.GetInvalidFileNameChars();
+		return new string(name.Where(c => !invalid.Contains(c)).ToArray()).Trim();
+	}
+
+	private static string BuildReadme(string title, List<Contracts.ViewModels.SignatureViewModel> signatures)
+	{
+		var sb = new System.Text.StringBuilder();
+		sb.AppendLine($"Пакет верификации документа: {title}");
+		sb.AppendLine($"Дата формирования: {DateTime.UtcNow:dd.MM.yyyy HH:mm} UTC");
+		sb.AppendLine();
+		sb.AppendLine("Состав пакета:");
+		sb.AppendLine("  document.*          — оригинальный документ");
+		sb.AppendLine("  signatures/*.sig    — отсоединённые подписи (PKCS#7 DER)");
+		sb.AppendLine("  certificates/*.cer  — публичные сертификаты подписантов");
+		sb.AppendLine();
+		sb.AppendLine("Проверка подписи (КриптоПро CSP):");
+		sb.AppendLine("  csptest -sfsign -verify -in document.* -signature signatures/<имя>.sig -detached");
+		sb.AppendLine();
+		sb.AppendLine("Проверка подписи (OpenSSL, только для RSA):");
+		sb.AppendLine("  openssl smime -verify -inform DER -in signatures/<имя>.sig -content document.* -noverify");
+		sb.AppendLine();
+		sb.AppendLine("Подписанты:");
+		foreach (var sig in signatures.Where(s => !s.IsDeleted))
+			sb.AppendLine($"  - UserId={sig.UserId}, подписано {sig.SignedAt:dd.MM.yyyy HH:mm} UTC");
+		return sb.ToString();
 	}
 	}
 

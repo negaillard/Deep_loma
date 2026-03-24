@@ -206,6 +206,8 @@
                                                     data-search="@Model.SearchTerm">
                                                 <i class="bi bi-pencil"></i>
                                             </button>
+                                            @if (Model.AppCertificateMode == CertificateMode.Internal)
+                                            {
                                             <button type="button"
                                                     class="btn btn-sm"
                                                     style="color:#059669; background:none; border:none; padding:0.2rem 0.4rem;"
@@ -219,6 +221,7 @@
                                                     data-search="@Model.SearchTerm">
                                                 <i class="bi bi-shield@(user.CertificateId > 0 ? "-check" : "-plus")"></i>
                                             </button>
+                                            }
                                             @if (user.IsActive)
                                             {
                                                 <button type="button"
@@ -437,7 +440,9 @@
     </div>
 </div>
 
-<!-- Certificate generation modal -->
+<!-- Certificate generation modal (Internal mode only) -->
+@if (Model.AppCertificateMode == CertificateMode.Internal)
+{
 <div class="modal fade" id="certModal" tabindex="-1" aria-labelledby="certModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
         <div class="modal-content" style="border-radius:12px; border:none; box-shadow:0 20px 60px rgba(0,0,0,0.18);">
@@ -490,6 +495,7 @@
         </div>
     </div>
 </div>
+}
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
@@ -526,20 +532,22 @@
             form.action = '?handler=Delete';
         });
 
-        // Certificate modal
-        const certModal = document.getElementById('certModal');
-        certModal.addEventListener('show.bs.modal', function (event) {
-            const btn = event.relatedTarget;
-            document.getElementById('certUserName').textContent = btn.dataset.userName;
-            document.getElementById('certUserId').value = btn.dataset.userId;
-            document.getElementById('certPageNumber').value = btn.dataset.page;
-            document.getElementById('certSearch').value = btn.dataset.search ?? '';
-            document.getElementById('certModalSubtitle').textContent = 'id ' + btn.dataset.userId;
+        var isInternalMode = @(Model.AppCertificateMode == CertificateMode.Internal ? "true" : "false");
+        if (isInternalMode) {
+            const certModal = document.getElementById('certModal');
+            certModal.addEventListener('show.bs.modal', function (event) {
+                const btn = event.relatedTarget;
+                document.getElementById('certUserName').textContent = btn.dataset.userName;
+                document.getElementById('certUserId').value = btn.dataset.userId;
+                document.getElementById('certPageNumber').value = btn.dataset.page;
+                document.getElementById('certSearch').value = btn.dataset.search ?? '';
+                document.getElementById('certModalSubtitle').textContent = 'id ' + btn.dataset.userId;
 
-            const hasCert = btn.dataset.hasCert === 'true';
-            document.getElementById('certReplaceWarning').style.display = hasCert ? 'block' : 'none';
+                const hasCert = btn.dataset.hasCert === 'true';
+                document.getElementById('certReplaceWarning').style.display = hasCert ? 'block' : 'none';
 
-            document.getElementById('certForm').action = '?handler=GenerateCertificate';
-        });
+                document.getElementById('certForm').action = '?handler=GenerateCertificate';
+            });
+        }
     </script>
 }

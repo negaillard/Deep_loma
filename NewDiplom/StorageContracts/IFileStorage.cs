@@ -10,6 +10,13 @@ namespace Contracts.StorageContracts
 	{
 		Task<string> SaveOriginalAsync(int documentId, string title, Stream stream, string extension);
 		Task<string> SaveSignatureAsync(int documentId, int signatureId, Stream stream);
+
+		/// <summary>
+		/// Сохраняет публичный сертификат (.cer), извлечённый из подписи.
+		/// Возвращает относительный путь.
+		/// </summary>
+		Task<string> SaveSignatureCertificateAsync(int documentId, int signatureId, byte[] cerBytes);
+
 		Task<Stream> GetFileAsync(string relativePath);
 		Task DeleteDocumentFolderAsync(int documentId);
 

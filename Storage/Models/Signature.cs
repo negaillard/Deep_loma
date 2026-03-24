@@ -12,6 +12,7 @@ namespace Storage.Models
 		[Required]
 		public string SignatureValue { get; set; } = string.Empty;
 		public string Path { get; set; } = string.Empty;
+		public string CertificatePath { get; set; } = string.Empty;
 		[Required]
 		public int CerificateId { get; set; }
 		[Required]
@@ -34,6 +35,7 @@ namespace Storage.Models
 				Id = model.Id,
 				SignatureValue = model.SignatureValue,
 				Path = model.Path,
+				CertificatePath = model.CertificatePath,
 				CerificateId = model.CerificateId,
 				SignedAt = model.SignedAt,
 				UserId = model.UserId,
@@ -50,6 +52,7 @@ namespace Storage.Models
 			}
 			SignatureValue = model.SignatureValue;
 			Path = model.Path;
+			CertificatePath = model.CertificatePath;
 			CerificateId = model.CerificateId;
 			SignedAt = model.SignedAt;
 			UserId = model.UserId;
@@ -62,6 +65,7 @@ namespace Storage.Models
 			Id = Id,
 			SignatureValue = SignatureValue,
 			Path = Path,
+			CertificatePath = CertificatePath,
 			CerificateId = CerificateId,
 			SignedAt = SignedAt,
 			UserId = UserId,

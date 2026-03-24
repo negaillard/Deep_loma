@@ -112,10 +112,14 @@ namespace SigningService.Consumers
 					return;
 				}
 
-				signatureModel.Id = created.Id;
-				signatureModel.Path = await _fileStorage.SaveSignatureAsync(
-					message.DocumentId, created.Id, sigStream);
-				await _signatureStorage.UpdateAsync(signatureModel);
+			signatureModel.Id = created.Id;
+			signatureModel.Path = await _fileStorage.SaveSignatureAsync(
+				message.DocumentId, created.Id, sigStream);
+
+			signatureModel.CertificatePath = await ExtractAndSaveCertificateAsync(
+				signatureBytes, message.DocumentId, created.Id);
+
+			await _signatureStorage.UpdateAsync(signatureModel);
 
 				var documentUser = await _documentUserStorage.GetElementAsync(
 					new DocumentUserSearchModel
@@ -171,7 +175,37 @@ namespace SigningService.Consumers
 			}
 		}
 
-		private async Task<byte[]> ReadAllBytesAsync(string relativePath)
+		/// <summary>
+	/// Извлекает публичный сертификат подписанта из PKCS#7 и сохраняет как .cer.
+	/// Работает для RSA (Internal) и ГОСТ (External) подписей.
+	/// </summary>
+	private async Task<string> ExtractAndSaveCertificateAsync(
+		byte[] signatureBytes, int documentId, int signatureId)
+	{
+		try
+		{
+			var signedCms = new System.Security.Cryptography.Pkcs.SignedCms();
+			signedCms.Decode(signatureBytes);
+
+			if (signedCms.Certificates.Count == 0)
+			{
+				_logger.LogWarning(
+					"Подпись SignatureId={Id} не содержит сертификата — .cer не сохранён", signatureId);
+				return string.Empty;
+			}
+
+			var cerBytes = signedCms.Certificates[0].RawData;
+			return await _fileStorage.SaveSignatureCertificateAsync(documentId, signatureId, cerBytes);
+		}
+		catch (Exception ex)
+		{
+			_logger.LogWarning(ex,
+				"Не удалось извлечь сертификат из подписи SignatureId={Id}", signatureId);
+			return string.Empty;
+		}
+	}
+
+	private async Task<byte[]> ReadAllBytesAsync(string relativePath)
 		{
 			using var stream = await _fileStorage.GetFileAsync(relativePath);
 			using var ms = new MemoryStream();

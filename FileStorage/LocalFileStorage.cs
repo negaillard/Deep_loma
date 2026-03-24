@@ -40,6 +40,17 @@ namespace FileStorage
 			return GetRelativePath(filePath);
 		}
 
+		public async Task<string> SaveSignatureCertificateAsync(int documentId, int signatureId, byte[] cerBytes)
+		{
+			var folder = Path.Combine(_rootPath, "documents", documentId.ToString(), "certificates");
+			Directory.CreateDirectory(folder);
+
+			var filePath = Path.Combine(folder, $"{signatureId}.cer");
+			await File.WriteAllBytesAsync(filePath, cerBytes);
+
+			return GetRelativePath(filePath);
+		}
+
 		public Task<Stream> GetFileAsync(string relativePath)
 		{
 			var fullPath = Path.Combine(_rootPath, relativePath);

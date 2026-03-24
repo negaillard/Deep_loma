@@ -1,4 +1,4 @@
-﻿using Models;
+using Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,6 +19,7 @@ namespace Contracts.ViewModels
 
 		public int DocumentId { get; set; }
 		public string Path { get; set; } = string.Empty;
+		public string CertificatePath { get; set; } = string.Empty;
 
 		public int Id { get; set; }
 		public bool IsDeleted { get; set; }

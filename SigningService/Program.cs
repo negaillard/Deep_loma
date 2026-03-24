@@ -17,14 +17,8 @@ builder.Services.AddScoped<IFileStorage, LocalFileStorage>();
 
 var appMode = builder.Configuration.GetValue<CertificateMode>("AppMode");
 
-if (appMode == CertificateMode.Internal)
-{
-	builder.Services.AddScoped<IDocumentSigner, InternalDocumentSigner>();
-}
-else
-{
-	builder.Services.AddScoped<IDocumentSigner, CryptoProDocumentSigner>();
-}
+// В режиме Local подписание происходит на клиенте, SigningService не используется
+builder.Services.AddScoped<IDocumentSigner, InternalDocumentSigner>();
 
 builder.Services.AddMassTransit(x =>
 {

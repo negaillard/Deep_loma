@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -14,6 +14,7 @@ namespace Models
 		int UserId { get; }
 		int DocumentId { get; }
 		string Path { get; set; }
+		string CertificatePath { get; set; }
 		bool IsDeleted { get; set; }
 	}
 }

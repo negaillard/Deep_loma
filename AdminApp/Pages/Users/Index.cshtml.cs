@@ -14,11 +14,13 @@ namespace AdminApp.Pages.Users;
 public class IndexModel : PageModel
 {
     private readonly ApiClient _apiClient;
+    private readonly IConfiguration _configuration;
     public const int PageSize = 8;
 
-    public IndexModel(ApiClient apiClient)
+    public IndexModel(ApiClient apiClient, IConfiguration configuration)
     {
         _apiClient = apiClient;
+        _configuration = configuration;
     }
 
     public List<UserViewModel> Users { get; set; } = [];
@@ -27,6 +29,7 @@ public class IndexModel : PageModel
     public bool HasNextPage { get; set; }
     public string? SearchTerm { get; set; }
     public bool IsSearchActive => !string.IsNullOrWhiteSpace(SearchTerm);
+    public CertificateMode AppCertificateMode { get; private set; }
 
     [BindProperty]
     public UserInputModel NewUser { get; set; } = new();
@@ -44,6 +47,7 @@ public class IndexModel : PageModel
     {
         PageNumber = pageNumber;
         SearchTerm = search?.Trim();
+        AppCertificateMode = _configuration.GetValue<CertificateMode>("CertificateMode");
 
         await LoadRolesAsync();
 

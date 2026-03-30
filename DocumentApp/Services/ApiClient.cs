@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using Contracts.BindingModels;
 using Contracts.Requests;
 using Contracts.Responses;
@@ -107,46 +108,48 @@ public class ApiClient
 
     // ── Documents ─────────────────────────────────────────────────────────
 
-    public async Task<List<DocumentViewModel>> GetDocumentsByStatus(DocumentStatus? status = null)
+    /// <summary>
+    /// Единый запрос: фильтры и пагинация (ответ API — <see cref="PagedResult{T}"/>).
+    /// </summary>
+    public async Task<PagedResult<DocumentViewModel>> GetDocumentsFilteredPaged(
+        DocumentStatus[]? statuses = null,
+        DocumentStatus? status = null,
+        string? search = null,
+        int pageNumber = 1,
+        int pageSize = 20)
     {
         try
         {
-            var url = status.HasValue
-                ? $"api/documents/filter?status={(int)status}&isDeleted=false"
-                : "api/documents/filter?isDeleted=false";
-            return await Client().GetFromJsonAsync<List<DocumentViewModel>>(url) ?? [];
-        }
-        catch { return []; }
-    }
+            var qs = new StringBuilder();
+            qs.Append("isDeleted=false");
+            qs.Append("&pageNumber=").Append(pageNumber);
+            qs.Append("&pageSize=").Append(pageSize);
+            if (statuses is { Length: > 0 })
+            {
+                foreach (var s in statuses)
+                    qs.Append("&statuses=").Append((int)s);
+            }
+            else if (status.HasValue)
+                qs.Append("&status=").Append((int)status.Value);
+            if (!string.IsNullOrWhiteSpace(search))
+                qs.Append("&search=").Append(Uri.EscapeDataString(search));
 
-    public async Task<List<DocumentViewModel>> GetDocumentsByStatuses(DocumentStatus[] statuses)
-    {
-        var result = new List<DocumentViewModel>();
-        foreach (var status in statuses)
+            var url = $"api/documents/filter?{qs}";
+            return await Client().GetFromJsonAsync<PagedResult<DocumentViewModel>>(url)
+                   ?? new PagedResult<DocumentViewModel>
+                   {
+                       PageNumber = pageNumber,
+                       PageSize = pageSize
+                   };
+        }
+        catch
         {
-            var docs = await GetDocumentsByStatus(status);
-            result.AddRange(docs);
+            return new PagedResult<DocumentViewModel>
+            {
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
         }
-        return result;
-    }
-
-    public async Task<List<DocumentViewModel>> GetActiveDocuments()
-    {
-        return await GetDocumentsByStatuses(
-        [
-            DocumentStatus.NOT_SIGNED,
-            DocumentStatus.PARTLY_SIGNED,
-            DocumentStatus.DECLINED
-        ]);
-    }
-
-    public async Task<List<DocumentViewModel>> GetArchivedDocuments()
-    {
-        return await GetDocumentsByStatuses(
-        [
-            DocumentStatus.SIGNED,
-            DocumentStatus.DECLINED
-        ]);
     }
 
     public async Task<(bool Success, string Message)> UploadDocument(

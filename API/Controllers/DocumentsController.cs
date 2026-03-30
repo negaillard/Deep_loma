@@ -52,13 +52,13 @@ namespace API.Controllers
 			_publishEndpoint = publishEndpoint;
 		}
 
-		[AuthorizeSigner]
-		[HttpGet]
-		public async Task<IActionResult> GetAll()
-		{
-			_logger.LogInformation("Попытка получения списка документов");
-			return Ok(await _documentLogic.ReadListAsync(null));
-		}
+		//[AuthorizeSigner]
+		//[HttpGet]
+		//public async Task<IActionResult> GetAll()
+		//{
+		//	_logger.LogInformation("Попытка получения списка документов");
+		//	return Ok(await _documentLogic.ReadListAsync(null));
+		//}
 
 		[AuthorizeSigner]
 		[HttpGet("{id}")]
@@ -219,38 +219,39 @@ namespace API.Controllers
 			}
 		}
 
+		/// <summary>
+		/// Фильтрация документов с пагинацией. Параметры statuses (несколько раз в query) задают OR по статусам;
+		/// если не указаны — одиночный status или без фильтра по статусу.
+		/// </summary>
 		[AuthorizeSigner]
 		[HttpGet("filter")]
 		public async Task<IActionResult> Filter(
 			[FromQuery] string? title = null,
+			[FromQuery] string? search = null,
 			[FromQuery] int? createdByUserId = null,
 			[FromQuery] DocumentStatus? status = null,
-			[FromQuery] bool? isDeleted = null)
-		{
-			_logger.LogInformation("Фильтрация документов");
-			var result = await _documentLogic.ReadListAsync(new DocumentSearchModel
-			{
-				Title = title,
-				CreatedByUserId = createdByUserId,
-				Status = status,
-				IsDeleted = isDeleted
-			});
-			return Ok(result);
-		}
-
-		[AuthorizeSigner]
-		[HttpGet("paged")]
-		public async Task<IActionResult> GetPaged(
+			[FromQuery] DocumentStatus[]? statuses = null,
+			[FromQuery] bool? isDeleted = null,
 			[FromQuery] int pageNumber = 1,
 			[FromQuery] int pageSize = 20)
 		{
-			_logger.LogInformation("Получение документов с пагинацией");
-			var result = await _documentLogic.ReadPagedListAsync(new DocumentSearchModel
+			_logger.LogInformation(
+				"Фильтрация документов (стр. {Page}, размер {Size})",
+				pageNumber, pageSize);
+
+			var model = new DocumentSearchModel
 			{
+				Title = title,
+				SearchText = search,
+				CreatedByUserId = createdByUserId,
+				Status = status,
+				Statuses = statuses != null && statuses.Length > 0 ? [.. statuses] : null,
+				IsDeleted = isDeleted,
 				PageNumber = pageNumber,
 				PageSize = pageSize
-			});
+			};
 
+			var result = await _documentLogic.ReadFilteredPagedAsync(model);
 			return Ok(result);
 		}
 
@@ -277,6 +278,7 @@ namespace API.Controllers
 			}
 		}
 
+	/// ПОЛУЧЕНИЕ ТОЛЬКО ДОКУМЕНТОВ НА ПОДПИСАНИЕ. ДЛЯ КЛИЕНТСКИХ ПРИЛОЖЕНИЙ. НЕ ТРОГАТЬ РАБОТАЕТ
 	[AuthorizeSigner]
 	[HttpGet("get-for-sign")]
 	public async Task<IActionResult> GetDocumentsForSign(
@@ -400,6 +402,7 @@ namespace API.Controllers
 		}
 	}
 
+	// вспомогательные
 	private static string SanitizeName(string name)
 	{
 		var invalid = Path.GetInvalidFileNameChars();

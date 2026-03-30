@@ -12,6 +12,8 @@
         <!-- Search -->
         <form method="get" class="d-flex gap-2 ms-auto">
             <input type="hidden" name="statusFilter" value="@Model.StatusFilter" />
+            <input type="hidden" name="p" value="1" />
+            <input type="hidden" name="pageSize" value="@Model.PageSize" />
             <div class="input-group input-group-sm" style="max-width: 260px;">
                 <input type="text" name="search" value="@Model.SearchTerm"
                        class="form-control" placeholder="Поиск по названию..." />
@@ -30,17 +32,17 @@
 
         <!-- Status filter tabs -->
         <div class="d-flex gap-1 flex-wrap">
-            <a href="/Documents/Archive@(!string.IsNullOrEmpty(Model.SearchTerm) ? $"?search={Uri.EscapeDataString(Model.SearchTerm)}" : "")"
+            <a href="/Documents/Archive@(!string.IsNullOrEmpty(Model.SearchTerm) ? $"?search={Uri.EscapeDataString(Model.SearchTerm)}&pageSize={Model.PageSize}" : $"?pageSize={Model.PageSize}")"
                class="btn btn-sm @(string.IsNullOrEmpty(Model.StatusFilter) ? "btn-primary" : "btn-outline-secondary")"
                style="font-size:0.75rem; padding:0.2rem 0.6rem; border-radius:20px;">
                 Все
             </a>
-            <a href="/Documents/Archive?statusFilter=SIGNED@(!string.IsNullOrEmpty(Model.SearchTerm) ? $"&search={Uri.EscapeDataString(Model.SearchTerm)}" : "")"
+            <a href="/Documents/Archive?statusFilter=SIGNED@(!string.IsNullOrEmpty(Model.SearchTerm) ? $"&search={Uri.EscapeDataString(Model.SearchTerm)}" : "")&pageSize=@Model.PageSize"
                class="btn btn-sm @(Model.StatusFilter == "SIGNED" ? "" : "btn-outline-secondary")"
                style="font-size:0.75rem; padding:0.2rem 0.6rem; border-radius:20px; @(Model.StatusFilter == "SIGNED" ? "background:#d1fae5; color:#065f46; border-color:#a7f3d0;" : "")">
                 Подписанные
             </a>
-            <a href="/Documents/Archive?statusFilter=DECLINED@(!string.IsNullOrEmpty(Model.SearchTerm) ? $"&search={Uri.EscapeDataString(Model.SearchTerm)}" : "")"
+            <a href="/Documents/Archive?statusFilter=DECLINED@(!string.IsNullOrEmpty(Model.SearchTerm) ? $"&search={Uri.EscapeDataString(Model.SearchTerm)}" : "")&pageSize=@Model.PageSize"
                class="btn btn-sm @(Model.StatusFilter == "DECLINED" ? "btn-danger" : "btn-outline-secondary")"
                style="font-size:0.75rem; padding:0.2rem 0.6rem; border-radius:20px;">
                 Отклонённые
@@ -54,7 +56,7 @@
             <small style="color:#1e40af;">
                 <i class="bi bi-search me-1"></i>
                 Результаты поиска по: <strong>«@Model.SearchTerm»</strong>
-                — найдено: @Model.Documents.Count
+                — найдено: @Model.TotalCount
             </small>
         </div>
     }
@@ -125,7 +127,7 @@
                                             data-doc-date="@doc.CreatedAt.ToString("dd.MM.yyyy HH:mm")">
                                         <i class="bi bi-eye"></i>
                                     </button>
-                                    <a href="/api/documents/@doc.Id/file"
+                                    <a href="?handler=Download&id=@doc.Id"
                                        class="btn btn-sm"
                                        style="color:#059669; background:none; border:none; padding:0.2rem 0.4rem;"
                                        title="Скачать" target="_blank">
@@ -139,11 +141,54 @@
             </table>
         </div>
 
-        <div class="pagination-bar">
+        <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-3 py-2 px-1">
             <span style="font-size:0.82rem; color:#6b7280;">
                 <i class="bi bi-archive me-1"></i>
-                Всего документов: <strong>@Model.Documents.Count</strong>
+                Всего: <strong>@Model.TotalCount</strong>
+                @if (Model.TotalPages > 1)
+                {
+                    <span class="text-muted">· стр. @Model.PageNumber из @Model.TotalPages</span>
+                }
             </span>
+            @if (Model.TotalPages > 1)
+            {
+                <nav aria-label="Страницы архива">
+                    <ul class="pagination pagination-sm mb-0">
+                        <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : null)">
+                            <a class="page-link"
+                               asp-page="/Documents/Archive"
+                               asp-route-statusFilter="@Model.StatusFilter"
+                               asp-route-search="@Model.SearchTerm"
+                               asp-route-p="@(Model.PageNumber - 1)"
+                               asp-route-pageSize="@Model.PageSize">Назад</a>
+                        </li>
+                        @{
+                            var from = Math.Max(1, Model.PageNumber - 2);
+                            var to = Math.Min(Model.TotalPages, Model.PageNumber + 2);
+                            for (var p = from; p <= to; p++)
+                            {
+                                var active = p == Model.PageNumber;
+                                <li class="page-item @(active ? "active" : null)">
+                                    <a class="page-link"
+                                       asp-page="/Documents/Archive"
+                                       asp-route-statusFilter="@Model.StatusFilter"
+                                       asp-route-search="@Model.SearchTerm"
+                                       asp-route-p="@p"
+                                       asp-route-pageSize="@Model.PageSize">@p</a>
+                                </li>
+                            }
+                        }
+                        <li class="page-item @(Model.PageNumber >= Model.TotalPages ? "disabled" : null)">
+                            <a class="page-link"
+                               asp-page="/Documents/Archive"
+                               asp-route-statusFilter="@Model.StatusFilter"
+                               asp-route-search="@Model.SearchTerm"
+                               asp-route-p="@(Model.PageNumber + 1)"
+                               asp-route-pageSize="@Model.PageSize">Вперёд</a>
+                        </li>
+                    </ul>
+                </nav>
+            }
         </div>
     }
 </div>
@@ -214,7 +259,7 @@
 
         document.getElementById('archiveDetailTitle').textContent = title;
         document.getElementById('archiveDetailDate').textContent  = date;
-        document.getElementById('archiveDetailDownload').href      = `/api/documents/${id}/file`;
+        document.getElementById('archiveDetailDownload').href      = `?handler=Download&id=${id}`;
 
         const statusEl = document.getElementById('archiveDetailStatus');
         statusEl.className = `status-badge ${statusClass}`;
@@ -232,7 +277,7 @@
         signersEl.innerHTML = '<div class="d-flex align-items-center gap-2" style="color:#9ca3af;"><div class="spinner-border spinner-border-sm"></div> Загрузка...</div>';
 
         try {
-            const resp = await fetch(`/api/documents/${id}/signers`, {
+            const resp = await fetch(`?handler=Signers&id=${id}`, {
                 headers: { 'Accept': 'application/json' }
             });
             if (resp.ok) {

@@ -51,32 +51,65 @@ namespace Storage.Storages
 			return null;
 		}
 
-		public async Task<List<DocumentViewModel>> GetFilteredListAsync(DocumentSearchModel model)
+		private static IQueryable<Document> ApplyDocumentFilters(IQueryable<Document> query, DocumentSearchModel model)
 		{
-			if (string.IsNullOrEmpty(model.Title) && !model.Status.HasValue)
-			{
-				return new();
-			}
-			using var context = new StorageContext();
-			var query = context.Documents.AsQueryable();
 			if (!model.IsDeleted.HasValue || model.IsDeleted.Value == false)
-			{
 				query = query.Where(x => !x.IsDeleted);
-			}
-			if (!string.IsNullOrEmpty(model.Title))
+			else if (model.IsDeleted == true)
+				query = query.Where(x => x.IsDeleted);
+
+			if (model.CreatedByUserId.HasValue)
+				query = query.Where(x => x.CreatedByUserId == model.CreatedByUserId.Value);
+
+			if (model.Statuses != null && model.Statuses.Count > 0)
 			{
-				return await query
-				.Where(x => x.Title.Contains(model.Title))
-				.Select(x => x.GetViewModel)
-				.ToListAsync();
+				var statuses = model.Statuses;
+				query = query.Where(x => statuses.Contains(x.Status));
+			}
+			else if (model.Status.HasValue)
+				query = query.Where(x => x.Status == model.Status.Value);
+
+			if (!string.IsNullOrEmpty(model.SearchText))
+			{
+				var s = model.SearchText;
+				query = query.Where(x => x.Title.Contains(s) ||
+					(x.Description != null && x.Description.Contains(s)));
 			}
 			else
 			{
-				return await query
-				.Where(x => x.Status == model.Status)
+				if (!string.IsNullOrEmpty(model.Title))
+					query = query.Where(x => x.Title.Contains(model.Title));
+				if (!string.IsNullOrEmpty(model.Description))
+					query = query.Where(x => x.Description.Contains(model.Description));
+			}
+
+			return query;
+		}
+
+		public async Task<List<DocumentViewModel>> GetFilteredListAsync(DocumentSearchModel model)
+		{
+			using var context = new StorageContext();
+			var query = ApplyDocumentFilters(context.Documents.AsQueryable(), model);
+			query = query.OrderByDescending(x => x.CreatedAt);
+			return await query.Select(x => x.GetViewModel).ToListAsync();
+		}
+
+		public async Task<(List<DocumentViewModel> Items, int TotalCount)> GetFilteredPagedListAsync(DocumentSearchModel model)
+		{
+			if (!model.PageNumber.HasValue || !model.PageSize.HasValue || model.PageNumber < 1 || model.PageSize < 1)
+				return ([], 0);
+
+			using var context = new StorageContext();
+			var query = ApplyDocumentFilters(context.Documents.AsQueryable(), model);
+			query = query.OrderByDescending(x => x.CreatedAt);
+			var totalCount = await query.CountAsync();
+			var skip = (model.PageNumber.Value - 1) * model.PageSize.Value;
+			var items = await query
+				.Skip(skip)
+				.Take(model.PageSize.Value)
 				.Select(x => x.GetViewModel)
 				.ToListAsync();
-			}
+			return (items, totalCount);
 		}
 
 		public async Task<List<DocumentViewModel>> GetFullListAsync()
@@ -90,19 +123,8 @@ namespace Storage.Storages
 
 		public async Task<List<DocumentViewModel>> GetPagedListAsync(DocumentSearchModel model)
 		{
-			if (!model.PageNumber.HasValue || !model.PageSize.HasValue || model.PageNumber < 1 || model.PageSize < 1)
-			{
-				return new();
-			}
-			var skip = (model.PageNumber.Value - 1) * model.PageSize.Value;
-			using var context = new StorageContext();
-			return await context.Documents
-				.Where(x => !x.IsDeleted)
-				.OrderBy(x => x.Id)
-				.Skip(skip)
-				.Take(model.PageSize.Value)
-				.Select(x => x.GetViewModel)
-				.ToListAsync();
+			var (items, _) = await GetFilteredPagedListAsync(model);
+			return items;
 		}
 
 		public async Task<DocumentViewModel?> InsertAsync(DocumentBindingModel model)

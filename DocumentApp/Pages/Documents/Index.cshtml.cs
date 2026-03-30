@@ -18,6 +18,11 @@ public class IndexModel : PageModel
     }
 
     public List<DocumentViewModel> Documents { get; set; } = [];
+    public int PageNumber { get; set; } = 1;
+    public int PageSize { get; set; } = 20;
+    public int TotalCount { get; set; }
+    public int TotalPages { get; set; }
+    public bool HasNextPage => PageNumber < TotalPages;
 
     // Upload form properties
     [BindProperty]
@@ -64,10 +69,15 @@ public class IndexModel : PageModel
         _ => "bi-file-earmark"
     };
 
-    public async Task<IActionResult> OnGetAsync(string? statusFilter = null)
+    /// <param name="p"></param>
+    public async Task<IActionResult> OnGetAsync(string? statusFilter = null, int p = 1, int pageSize = 10)
     {
+        if (p < 1) p = 1;
+        if (pageSize is < 1 or > 100) pageSize = 20;
         StatusFilter = statusFilter;
-        await LoadDocumentsAsync(statusFilter);
+        PageNumber = p;
+        PageSize = pageSize;
+        await LoadDocumentsAsync(statusFilter, p, pageSize);
         return Page();
     }
 
@@ -76,21 +86,21 @@ public class IndexModel : PageModel
         if (string.IsNullOrWhiteSpace(Title))
         {
             TempData["ErrorMessage"] = "Введите название документа";
-            await LoadDocumentsAsync(null);
+            await LoadDocumentsAsync(null, 1, PageSize);
             return Page();
         }
 
         if (UploadedFile == null || UploadedFile.Length == 0)
         {
             TempData["ErrorMessage"] = "Выберите файл для загрузки";
-            await LoadDocumentsAsync(null);
+            await LoadDocumentsAsync(null, 1, PageSize);
             return Page();
         }
 
         if (SignerIds.Count == 0)
         {
             TempData["ErrorMessage"] = "Выберите хотя бы одного подписанта";
-            await LoadDocumentsAsync(null);
+            await LoadDocumentsAsync(null, 1, PageSize);
             return Page();
         }
 
@@ -164,31 +174,34 @@ public class IndexModel : PageModel
         return new JsonResult(result);
     }
 
-    private async Task LoadDocumentsAsync(string? statusFilter)
+    private async Task LoadDocumentsAsync(string? statusFilter, int p, int pageSize)
     {
+        DocumentStatus[]? statuses = null;
+        DocumentStatus? single = null;
         if (string.IsNullOrEmpty(statusFilter))
         {
-            Documents = await _apiClient.GetDocumentsByStatuses(
+            statuses =
             [
                 DocumentStatus.NOT_SIGNED,
                 DocumentStatus.PARTLY_SIGNED,
                 DocumentStatus.DECLINED
-            ]);
+            ];
         }
-        else if (Enum.TryParse<DocumentStatus>(statusFilter, out var status))
-        {
-            Documents = await _apiClient.GetDocumentsByStatus(status);
-        }
+        else if (Enum.TryParse<DocumentStatus>(statusFilter, out var st))
+            single = st;
         else
         {
-            Documents = await _apiClient.GetDocumentsByStatuses(
+            statuses =
             [
                 DocumentStatus.NOT_SIGNED,
                 DocumentStatus.PARTLY_SIGNED,
                 DocumentStatus.DECLINED
-            ]);
+            ];
         }
 
-        Documents = [.. Documents.OrderByDescending(d => d.CreatedAt)];
+        var paged = await _apiClient.GetDocumentsFilteredPaged(statuses, single, null, p, pageSize);
+        Documents = paged.Items;
+        TotalCount = paged.TotalCount;
+        TotalPages = paged.TotalPages > 0 ? paged.TotalPages : 1;
     }
 }

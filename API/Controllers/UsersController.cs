@@ -19,13 +19,13 @@ namespace API.Seeding
 			_logger = logger;
 		}
 
-		[AuthorizeDocument]
-		[HttpGet]
-		public async Task<IActionResult> GetAll()
-		{
-			_logger.LogInformation("Попытка получения списка пользователей");
-			return Ok(await _userLogic.ReadListAsync(null));
-		}
+		//[AuthorizeDocument]
+		//[HttpGet]
+		//public async Task<IActionResult> GetAll()
+		//{
+		//	_logger.LogInformation("Попытка получения списка пользователей");
+		//	return Ok(await _userLogic.ReadListAsync(null));
+		//}
 
 		[AuthorizeSigner]
 		[HttpGet("{id}")]

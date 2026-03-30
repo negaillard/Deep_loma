@@ -1,4 +1,4 @@
-﻿using Contracts.BindingModels;
+using Contracts.BindingModels;
 using Contracts.SearchModels;
 using Contracts.ViewModels;
 
@@ -8,6 +8,7 @@ namespace Contracts.StorageContracts
 	{
 		Task<List<DocumentViewModel>> GetFullListAsync();
 		Task<List<DocumentViewModel>> GetFilteredListAsync(DocumentSearchModel model);
+		Task<(List<DocumentViewModel> Items, int TotalCount)> GetFilteredPagedListAsync(DocumentSearchModel model);
 		Task<List<DocumentViewModel>> GetPagedListAsync(DocumentSearchModel model);
 		Task<DocumentViewModel?> GetElementAsync(DocumentSearchModel model);
 		Task<DocumentViewModel?> InsertAsync(DocumentBindingModel model);

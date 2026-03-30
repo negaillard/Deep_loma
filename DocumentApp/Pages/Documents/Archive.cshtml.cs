@@ -20,6 +20,10 @@ public class ArchiveModel : PageModel
     public List<DocumentViewModel> Documents { get; set; } = [];
     public string? StatusFilter { get; set; }
     public string? SearchTerm { get; set; }
+    public int PageNumber { get; set; } = 1;
+    public int PageSize { get; set; } = 20;
+    public int TotalCount { get; set; }
+    public int TotalPages { get; set; }
 
     public static string StatusLabel(DocumentStatus status) => status switch
     {
@@ -42,41 +46,71 @@ public class ArchiveModel : PageModel
         _ => "bi-file-earmark"
     };
 
-    public async Task<IActionResult> OnGetAsync(string? statusFilter = null, string? search = null)
+    /// <param name="p">
+    /// Номер страницы (не <c>page</c>: в Razor Pages query <c>page</c> зарезервирован под путь к странице).
+    /// </param>
+    public async Task<IActionResult> OnGetAsync(
+        string? statusFilter = null,
+        string? search = null,
+        int p = 1,
+        int pageSize = 5)
     {
         StatusFilter = statusFilter;
         SearchTerm = search;
+        if (p < 1) p = 1;
+        if (pageSize is < 1 or > 100) pageSize = 20;
+        PageNumber = p;
+        PageSize = pageSize;
+
+        DocumentStatus[]? statuses = null;
+        DocumentStatus? singleStatus = null;
 
         if (string.IsNullOrEmpty(statusFilter))
         {
-            Documents = await _apiClient.GetDocumentsByStatuses(
+            statuses =
             [
                 DocumentStatus.SIGNED,
                 DocumentStatus.DECLINED
-            ]);
+            ];
         }
-        else if (Enum.TryParse<DocumentStatus>(statusFilter, out var status))
-        {
-            Documents = await _apiClient.GetDocumentsByStatus(status);
-        }
+        else if (Enum.TryParse<DocumentStatus>(statusFilter, out var st))
+            singleStatus = st;
         else
         {
-            Documents = await _apiClient.GetDocumentsByStatuses(
+            statuses =
             [
                 DocumentStatus.SIGNED,
                 DocumentStatus.DECLINED
-            ]);
+            ];
         }
 
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            Documents = [.. Documents.Where(d =>
-                d.Title.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                (!string.IsNullOrEmpty(d.Description) &&
-                 d.Description.Contains(search, StringComparison.OrdinalIgnoreCase)))];
-        }
+        var paged = await _apiClient.GetDocumentsFilteredPaged(
+            statuses,
+            singleStatus,
+            string.IsNullOrWhiteSpace(search) ? null : search,
+            p,
+            pageSize);
 
-        Documents = [.. Documents.OrderByDescending(d => d.CreatedAt)];
+        Documents = paged.Items;
+        TotalCount = paged.TotalCount;
+        TotalPages = paged.TotalPages > 0 ? paged.TotalPages : 1;
+
         return Page();
+    }
+
+    public async Task<JsonResult> OnGetSignersAsync(int id)
+    {
+        var signers = await _apiClient.GetDocumentUsers(id);
+        return new JsonResult(signers);
+    }
+
+    public async Task<IActionResult> OnGetDownloadAsync(int id)
+    {
+        var (stream, fileName) = await _apiClient.DownloadDocument(id);
+        if (stream == null)
+            return NotFound();
+
+        fileName ??= $"document-{id}";
+        return File(stream, "application/octet-stream", fileName);
     }
 }

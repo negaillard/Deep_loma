@@ -27,21 +27,35 @@ namespace Logic
 			return list;
 		}
 
+		public async Task<PagedResult<DocumentViewModel>> ReadFilteredPagedAsync(DocumentSearchModel model)
+		{
+			if (model == null)
+				throw new ArgumentNullException(nameof(model));
+
+			if (!model.PageNumber.HasValue || model.PageNumber < 1)
+				model.PageNumber = 1;
+			if (!model.PageSize.HasValue || model.PageSize < 1)
+				model.PageSize = 20;
+			if (model.PageSize > 100)
+				model.PageSize = 100;
+
+			var (items, totalCount) = await _documentStorage.GetFilteredPagedListAsync(model);
+			return new PagedResult<DocumentViewModel>
+			{
+				Items = items,
+				TotalCount = totalCount,
+				PageNumber = model.PageNumber.Value,
+				PageSize = model.PageSize.Value
+			};
+		}
+
 		public async Task<List<DocumentViewModel>?> ReadPagedListAsync(DocumentSearchModel model)
 		{
 			if (model == null)
-			{
 				throw new ArgumentNullException(nameof(model));
-			}
 			if (!model.PageNumber.HasValue || !model.PageSize.HasValue)
-			{
 				throw new ArgumentException("Не указаны параметры пагинации");
-			}
 			var list = await _documentStorage.GetPagedListAsync(model);
-			if (list == null)
-			{
-				return null;
-			}
 			return list;
 		}
 		public async Task<DocumentViewModel?> ReadElementAsync(DocumentSearchModel model)

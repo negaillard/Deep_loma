@@ -59,6 +59,7 @@ namespace API.Controllers
 			return Ok(documentUsers);
 		}
 
+		/// ИСПОЛЬЗУЕТСЯ ДЛЯ ВНУТРЕННЕЙ ПОДПИСИ
 		[AuthorizeSigner]
 		[HttpPost("{id}/sign-intent")]
 		public async Task<IActionResult> SignIntent(int id)
@@ -135,6 +136,9 @@ namespace API.Controllers
 			}
 		}
 
+		/// <summary>
+		/// ОТКАЗ ОТ ПОДПИСИ
+		/// </summary>
 		[AuthorizeSigner]
 		[HttpPost("{id}/reject")]
 		public async Task<IActionResult> Reject(int id)

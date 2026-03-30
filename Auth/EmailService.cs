@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MimeKit;
 
-namespace Logic.Authentication
+namespace Auth
 {
 	public class EmailService : IEmailService
 	{

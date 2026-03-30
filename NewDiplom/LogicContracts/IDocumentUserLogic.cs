@@ -1,6 +1,7 @@
 using Contracts.BindingModels;
 using Contracts.SearchModels;
 using Contracts.ViewModels;
+using Models;
 
 namespace Contracts.LogicContracts
 {
@@ -12,6 +13,9 @@ namespace Contracts.LogicContracts
 		Task<bool> CreateAsync(DocumentUserBindingModel model);
 		Task<bool> UpdateAsync(DocumentUserBindingModel model);
 		Task<bool> DeleteAsync(DocumentUserBindingModel model);
+
+		Task<PagedResult<DocumentForSignViewModel>> GetPagedForSignAsync(
+			int userId, SigningStatus? signingStatus, int pageNumber, int pageSize);
 	}
 }
 

@@ -280,7 +280,9 @@ namespace API.Controllers
 	[AuthorizeSigner]
 	[HttpGet("get-for-sign")]
 	public async Task<IActionResult> GetDocumentsForSign(
-		[FromQuery] SigningStatus? signingStatus = null)
+		[FromQuery] SigningStatus? signingStatus = null,
+		[FromQuery] int pageNumber = 1,
+		[FromQuery] int pageSize = 10)
 	{
 		try
 		{
@@ -288,54 +290,15 @@ namespace API.Controllers
 			if (user == null)
 				return Unauthorized();
 
+			if (pageNumber < 1) pageNumber = 1;
+			if (pageSize < 1 || pageSize > 100) pageSize = 10;
+
 			_logger.LogInformation(
-				"Получение документов для подписания пользователем {UserId}", user.Id);
+				"Получение документов для подписания пользователем {UserId} (стр. {Page}, размер {Size})",
+				user.Id, pageNumber, pageSize);
 
-			var documentUsers = await _documentUserLogic.ReadListAsync(
-				new DocumentUserSearchModel
-				{
-					UserId = user.Id,
-					SigningStatus = signingStatus
-				});
-
-			if (documentUsers == null || documentUsers.Count == 0)
-				return Ok(new List<object>());
-
-			var result = new List<object>();
-
-			foreach (var du in documentUsers)
-			{
-				var document = await _documentLogic.ReadElementAsync(
-					new DocumentSearchModel { Id = du.DocumentId });
-
-				if (document == null || document.IsDeleted)
-					continue;
-
-				if (document.IsSequential && du.Order > 1)
-				{
-					var allSigners = await _documentUserLogic.ReadListAsync(
-						new DocumentUserSearchModel { DocumentId = du.DocumentId });
-
-					var hasUnfinishedPrevious = allSigners?.Any(s =>
-						s.Order < du.Order && s.SigningStatus != SigningStatus.SIGNED) ?? false;
-
-					if (hasUnfinishedPrevious)
-						continue;
-				}
-
-				result.Add(new
-				{
-					document.Id,
-					document.Title,
-					document.Description,
-					document.CreatedAt,
-					document.Status,
-					document.IsSequential,
-					UserSigningStatus = du.SigningStatus,
-					du.AssignedAt,
-					du.Order
-				});
-			}
+			var result = await _documentUserLogic.GetPagedForSignAsync(
+				user.Id, signingStatus, pageNumber, pageSize);
 
 			return Ok(result);
 		}

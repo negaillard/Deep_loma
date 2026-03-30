@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Text;
 
 namespace Storage.Storages
 {
@@ -128,6 +129,57 @@ namespace Storage.Storages
 			await UpdateDocumentStatusAsync(context, documentUser.DocumentId);
 			return documentUser.GetViewModel;
 		}
+		public async Task<(List<DocumentForSignViewModel> Items, int TotalCount)> GetPagedForSignAsync(
+			int userId, SigningStatus? signingStatus, int pageNumber, int pageSize)
+		{
+			using var context = new StorageContext();
+
+			var query = context.DocumentUsers
+				.Include(du => du.Document)
+				.Where(du => du.UserId == userId && !du.Document.IsDeleted);
+
+			if (signingStatus.HasValue)
+				query = query.Where(du => du.SigningStatus == signingStatus.Value);
+
+			// для NOT_SIGNED и PENDING применяем фильтр последовательной подписи на стороне БД
+			bool applySeqFilter = !signingStatus.HasValue
+				|| signingStatus == SigningStatus.NOT_SIGNED
+				|| signingStatus == SigningStatus.PENDING;
+
+			if (applySeqFilter)
+			{
+				query = query.Where(du =>
+					!du.Document.IsSequential ||
+					du.Order <= 1 ||
+					!context.DocumentUsers.Any(prev =>
+						prev.DocumentId == du.DocumentId &&
+						prev.Order < du.Order &&
+						prev.SigningStatus != SigningStatus.SIGNED));
+			}
+
+			var totalCount = await query.CountAsync();
+
+			var items = await query
+				.OrderByDescending(du => du.AssignedAt)
+				.Skip((pageNumber - 1) * pageSize)
+				.Take(pageSize)
+				.Select(du => new DocumentForSignViewModel
+				{
+					Id = du.DocumentId,
+					Title = du.Document.Title,
+					Description = du.Document.Description,
+					CreatedAt = du.Document.CreatedAt,
+					DocumentStatus = du.Document.Status,
+					IsSequential = du.Document.IsSequential,
+					UserSigningStatus = du.SigningStatus,
+					AssignedAt = du.AssignedAt,
+					Order = du.Order
+				})
+				.ToListAsync();
+
+			return (items, totalCount);
+		}
+
 		/// здесь ТОЛЬКО обновление статуса документа, НЕ статуса ДОКУМЕНТ-ЮЗЕР. 
 		/// ОБНОВЛЕНИЕ СТАТУСА ДОКУМЕНТ-ЮЗЕР ВЫШЕ !!!
 		/// Реальные Signature-записи создаёт SigningService после криптографического подписания.

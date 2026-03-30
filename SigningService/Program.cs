@@ -15,7 +15,6 @@ builder.Services.AddScoped<IDocumentUserStorage, DocumentUserStorage>();
 builder.Services.AddScoped<ISignatureStorage, SignatureStorage>();
 builder.Services.AddScoped<IFileStorage, LocalFileStorage>();
 
-var appMode = builder.Configuration.GetValue<CertificateMode>("AppMode");
 
 // В режиме Local подписание происходит на клиенте, SigningService не используется
 builder.Services.AddScoped<IDocumentSigner, InternalDocumentSigner>();

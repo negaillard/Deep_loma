@@ -2,7 +2,7 @@
 using Microsoft.Extensions.Caching.Distributed;
 using Contracts.BindingModels.Authentication;
 using Contracts.LogicContracts.Authentication;
-namespace Logic.Authentication
+namespace Auth
 {
 	public class SessionService : ISessionService
 	{

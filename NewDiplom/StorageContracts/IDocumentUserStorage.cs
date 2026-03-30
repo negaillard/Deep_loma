@@ -1,6 +1,7 @@
-﻿using Contracts.BindingModels;
+using Contracts.BindingModels;
 using Contracts.SearchModels;
 using Contracts.ViewModels;
+using Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,5 +19,12 @@ namespace Contracts.StorageContracts
 		Task<DocumentUserViewModel?> InsertAsync(DocumentUserBindingModel model);
 		Task<DocumentUserViewModel?> UpdateAsync(DocumentUserBindingModel model);
 		Task<DocumentUserViewModel?> DeleteAsync(DocumentUserBindingModel model);
+
+		/// <summary>
+		/// Возвращает постраничный список документов, назначенных пользователю на подпись.
+		/// Для статуса NOT_SIGNED/PENDING автоматически применяется фильтр последовательной подписи.
+		/// </summary>
+		Task<(List<DocumentForSignViewModel> Items, int TotalCount)> GetPagedForSignAsync(
+			int userId, SigningStatus? signingStatus, int pageNumber, int pageSize);
 	}
 }

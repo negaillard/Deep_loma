@@ -1,16 +1,17 @@
+using API;
 using API.Authorization;
 using API.Controllers;
 using API.Seeding;
-using Auth.Authentication;
+using Auth;
 using Contracts.BindingModels.Authentication;
 using Contracts.LogicContracts;
 using Contracts.LogicContracts.Authentication;
 using Contracts.StorageContracts;
 using FileStorage;
 using Logic;
-using Logic.Authentication;
 using MassTransit;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.OpenApi.Models;
 using Models;
 using Storage.Storages;
@@ -22,7 +23,7 @@ AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
 
 var builder = WebApplication.CreateBuilder(args);
 
-/// ����������� ����������� ������
+/// опционально. конфигурация веб-сервера на прием запросов с такими данными объема
 builder.WebHost.ConfigureKestrel(options =>
 {
 	options.Limits.MaxRequestBodySize = 100_000_000; // 100 MB
@@ -33,27 +34,27 @@ builder.Services.Configure<FormOptions>(options =>
 	options.MultipartBodyLengthLimit = 100_000_000; // 100 MB
 });
 
-/// �������� ����������� ������
+/// настройка файловой политики
 builder.Services.Configure<FileUploadPolicy>(
 	builder.Configuration.GetSection("FileUploadPolicy"));
 
-/// ���������
+/// конфигурация антивируса (подключение к серверу)
 builder.Services.Configure<AntivirusOptions>(
 	builder.Configuration.GetSection("Antivirus"));
 
-/// �����
+/// Конфигурация редиса (подключение к серверу и подключение в самой БД)
 builder.Services.AddStackExchangeRedisCache(options =>
 {
 	options.Configuration = builder.Configuration.GetConnectionString("Redis");
 	options.InstanceName = builder.Configuration["Redis:InstanceName"];
 });
 
-/// ������� � �����������
+/// авториазация в сваггере
 builder.Services.AddSwaggerGen(options =>
 {
 	options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
 	{
-		Description = "??????? ????? ? ???????: Bearer {token}",
+		Description = "Введите токен сессии в формате: Bearer {token}",
 		Name = "Authorization",
 		In = ParameterLocation.Header,
 		Type = SecuritySchemeType.ApiKey,
@@ -77,16 +78,16 @@ builder.Services.AddSwaggerGen(options =>
 
 });
 
-/// ������������� �� appsettings
+/// конфигурация из appsettings
 builder.Services.Configure<RedisSettings>(builder.Configuration.GetSection("Redis"));
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 
-/// ����������� ����������� �������� ����������� � ��������������
+/// регистрация сервисов для авторизации
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ICodeVerificationLogic, CodeVerificationLogic>();
 builder.Services.AddScoped<ISessionService, SessionService>();
 
-/// ����������� ������
+/// регистрация сервисов
 builder.Services.AddScoped<IUserLogic, UserLogic>();
 builder.Services.AddScoped<IRoleLogic, RoleLogic>();
 builder.Services.AddScoped<IDocumentLogic, DocumentLogic>();
@@ -95,7 +96,7 @@ builder.Services.AddScoped<ICertificateLogic, CertificateLogic>();
 builder.Services.AddScoped<ISignatureLogic, SignatureLogic>();
 builder.Services.AddScoped<IAntivirusService, ClamAvService>();
 
-/// ����������� ������������
+/// регистрация репозиториев
 builder.Services.AddScoped<IUserStorage, UserStorage>();
 builder.Services.AddScoped<IRoleStorage, RoleStorage>();
 builder.Services.AddScoped<IDocumentStorage, DocumentStorage>();
@@ -106,24 +107,14 @@ builder.Services.AddScoped<ISignatureStorage, SignatureStorage>();
 /// ����������� ��������� ���������
 builder.Services.AddScoped<IFileStorage, LocalFileStorage>();
 
-/// ����� ���� ������ �� ��������
-var certificateMode = builder.Configuration.GetValue<CertificateMode>("AppMode");
-
-if (certificateMode == CertificateMode.Internal)
-{
-	builder.Services.AddScoped<ICertificateGeneratorLogic, SelfSignedCertificateGenerator>();
-}
-else
-{
-	//builder.Services.AddScoped<ICertificateGeneratorLogic, CryptoProCertificateImporter>();
-}
-
+/// конфигурация масс транзита
 /// MASS TRANSIT ��� ���������� ��������� � �������
 /// ������������� ����� � exchange �� �������� ���������
 builder.Services.AddMassTransit(x =>
 {
 	x.UsingRabbitMq((context, cfg) =>
 	{
+		// подключение к рэббиту
 		cfg.Host(builder.Configuration["RabbitMQ:Host"] ?? "localhost", "/", h =>
 		{
 			h.Username(builder.Configuration["RabbitMQ:Username"] ?? "guest");
@@ -132,7 +123,25 @@ builder.Services.AddMassTransit(x =>
 	});
 });
 
+/// Получаем режим приложения
+var certificateMode = builder.Configuration.GetValue<CertificateMode>("AppMode");
+
+if (certificateMode == CertificateMode.Internal)
+{
+	builder.Services.AddScoped<ICertificateGeneratorLogic, SelfSignedCertificateGenerator>();
+}
+
 builder.Services.AddControllers();
+
+// не поднимаем контроллер сертификата при локальной подписи
+if (certificateMode == CertificateMode.Local)
+{
+	builder.Services.Configure<MvcOptions>(options =>
+	{
+		options.Conventions.Add(new ExcludeControllerConvention(typeof(CertificatesController)));
+	});
+}
+
 builder.Services.AddEndpointsApiExplorer();
 
 var app = builder.Build();
@@ -143,26 +152,6 @@ if (app.Environment.IsDevelopment())
 	app.UseSwagger();
 	app.UseSwaggerUI();
 }
-
-app.Use(async (context, next) =>
-{
-	var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
-	logger.LogWarning(">>> CANARY: {Method} {Path} ContentType={CT} ContentLength={CL}",
-		context.Request.Method,
-		context.Request.Path,
-		context.Request.ContentType,
-		context.Request.ContentLength);
-	try
-	{
-		await next(context);
-		logger.LogWarning(">>> CANARY DONE: {StatusCode}", context.Response.StatusCode);
-	}
-	catch (Exception ex)
-	{
-		logger.LogError(ex, ">>> CANARY CAUGHT EXCEPTION: {Message}", ex.Message);
-		throw;
-	}
-});
 
 app.UseExceptionHandler(errorApp =>
 {

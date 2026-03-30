@@ -9,7 +9,7 @@ using Microsoft.Extensions.Options;
 using Contracts.BindingModels.Authentication;
 using Contracts.LogicContracts.Authentication;
 
-namespace Auth.Authentication
+namespace Auth
 {
 	public class CodeVerificationLogic : ICodeVerificationLogic
 	{

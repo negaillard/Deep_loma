@@ -3,6 +3,7 @@ using Contracts.LogicContracts;
 using Contracts.SearchModels;
 using Contracts.StorageContracts;
 using Contracts.ViewModels;
+using Models;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -89,6 +90,21 @@ namespace Logic
 				return false;
 			}
 			return true;
+		}
+
+		public async Task<PagedResult<DocumentForSignViewModel>> GetPagedForSignAsync(
+			int userId, SigningStatus? signingStatus, int pageNumber, int pageSize)
+		{
+			var (items, totalCount) = await _DocumentUserStorage.GetPagedForSignAsync(
+				userId, signingStatus, pageNumber, pageSize);
+
+			return new PagedResult<DocumentForSignViewModel>
+			{
+				Items = items,
+				TotalCount = totalCount,
+				PageNumber = pageNumber,
+				PageSize = pageSize
+			};
 		}
 
 		private async Task CheckModelAsync(DocumentUserBindingModel model, bool withParams = true)

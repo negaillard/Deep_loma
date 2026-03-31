@@ -51,13 +51,13 @@ public class IndexModel : PageModel
         DeclinedDocs = await _apiClient.GetDocumentsForSign(SigningStatus.DECLINED, declinedPage, PageSize);
     }
 
-    public async Task<IActionResult> OnGetDownloadAsync(int id)
+    public async Task<IActionResult> OnGetDownloadAsync(int id, string tab = "pending")
     {
         var (stream, fileName) = await _apiClient.DownloadDocument(id);
         if (stream == null)
         {
             ErrorMessage = "Не удалось скачать файл документа";
-            return RedirectToPage(new { tab = "pending" });
+            return RedirectToPage(new { tab });
         }
         return File(stream, "application/octet-stream", fileName ?? $"document_{id}");
     }

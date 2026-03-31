@@ -128,7 +128,11 @@ var certificateMode = builder.Configuration.GetValue<CertificateMode>("AppMode")
 
 if (certificateMode == CertificateMode.Internal)
 {
-	builder.Services.AddScoped<ICertificateGeneratorLogic, SelfSignedCertificateGenerator>();
+	var internalCrypto = builder.Configuration["InternalCryptoAlgorithm"] ?? "Rsa";
+	if (string.Equals(internalCrypto, "Gost", StringComparison.OrdinalIgnoreCase))
+		builder.Services.AddScoped<ICertificateGeneratorLogic, SelfSignedCertificateGeneratorGost>();
+	else
+		builder.Services.AddScoped<ICertificateGeneratorLogic, SelfSignedCertificateGenerator>();
 }
 
 builder.Services.AddControllers();

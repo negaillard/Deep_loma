@@ -45,7 +45,7 @@ namespace API.Seeding
 			}
 			catch (Exception ex)
 			{
-				return BadRequest("Ошибка получения пользователя" + ex.Message);
+				return BadRequest("Ошибка получения пользователя: " + ex.Message);
 			}
 		}
 
@@ -66,7 +66,7 @@ namespace API.Seeding
 			}
 			catch (Exception ex)
 			{
-				return BadRequest("Ошибка при создании пользователя" + ex.Message);
+				return BadRequest("Ошибка при создании пользователя: " + ex.Message);
 			}
 		}
 
@@ -86,7 +86,7 @@ namespace API.Seeding
 			}
 			catch (Exception ex)
 			{
-				return BadRequest("Ошибка при обновлении пользователя" + ex.Message);
+				return BadRequest("Ошибка при обновлении пользователя: " + ex.Message);
 			}
 		}
 
@@ -98,15 +98,15 @@ namespace API.Seeding
 			{
 				if (!await _userLogic.DeleteAsync(new UserBindingModel { Id = id }))
 				{
-					_logger.LogWarning($"пользователь c id{id} не был удален");
-					return BadRequest("Ошибка при удалении пользователя");
+					_logger.LogWarning($"Пользователь c id{id} не был деактивирован");
+					return BadRequest("Ошибка при деактивации пользователя");
 				}
-				_logger.LogInformation($"пользователь c id{id} был удален");
-				return Ok("пользователь удалён");
+				_logger.LogInformation($"Пользователь c id{id} был удален");
+				return Ok("Пользователь деактивирован");
 			}
 			catch (Exception ex)
 			{
-				return BadRequest("Ошибка при удалении пользователя" + ex.Message);
+				return BadRequest("Ошибка при деактвации пользователя: " + ex.Message);
 			}
 		}
 		[AuthorizeSigner]

@@ -99,7 +99,8 @@ namespace SigningService.Consumers
 					SignedAt = DateTime.UtcNow,
 					UserId = message.UserId,
 					DocumentId = message.DocumentId,
-					IsDeleted = false
+					IsDeleted = false,
+					//CertificatePath = 
 				};
 
 				var created = await _signatureStorage.InsertAsync(signatureModel);
@@ -114,10 +115,10 @@ namespace SigningService.Consumers
 
 			signatureModel.Id = created.Id;
 			signatureModel.Path = await _fileStorage.SaveSignatureAsync(
-				message.DocumentId, created.Id, sigStream);
+				message.DocumentId, document.Title, message.UserId, sigStream);
 
 			signatureModel.CertificatePath = await ExtractAndSaveCertificateAsync(
-				signatureBytes, message.DocumentId, created.Id);
+				signatureBytes, message.DocumentId, document.Title, message.UserId);
 
 			await _signatureStorage.UpdateAsync(signatureModel);
 
@@ -180,7 +181,7 @@ namespace SigningService.Consumers
 	/// Работает для RSA (Internal) и ГОСТ (External) подписей.
 	/// </summary>
 	private async Task<string> ExtractAndSaveCertificateAsync(
-		byte[] signatureBytes, int documentId, int signatureId)
+		byte[] signatureBytes, int documentId, string documentTitle, int userId)
 	{
 		try
 		{
@@ -190,17 +191,17 @@ namespace SigningService.Consumers
 			if (signedCms.Certificates.Count == 0)
 			{
 				_logger.LogWarning(
-					"Подпись SignatureId={Id} не содержит сертификата — .cer не сохранён", signatureId);
+					"Подпись UserId={UserId} не содержит сертификата — .cer не сохранён", userId);
 				return string.Empty;
 			}
 
 			var cerBytes = signedCms.Certificates[0].RawData;
-			return await _fileStorage.SaveSignatureCertificateAsync(documentId, signatureId, cerBytes);
+			return await _fileStorage.SaveSignatureCertificateAsync(documentId, documentTitle, userId, cerBytes);
 		}
 		catch (Exception ex)
 		{
 			_logger.LogWarning(ex,
-				"Не удалось извлечь сертификат из подписи SignatureId={Id}", signatureId);
+				"Не удалось извлечь сертификат из подписи UserId={UserId}", userId);
 			return string.Empty;
 		}
 	}

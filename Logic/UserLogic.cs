@@ -1,4 +1,4 @@
-﻿using Contracts.BindingModels;
+using Contracts.BindingModels;
 using Contracts.LogicContracts;
 using Contracts.SearchModels;
 using Contracts.StorageContracts;
@@ -14,9 +14,12 @@ namespace Logic
 	public class UserLogic : IUserLogic
 	{
 		private readonly IUserStorage _UserStorage;
-		public UserLogic(IUserStorage UserStorage)
+		private readonly IDocumentUserStorage _documentUserStorage;
+
+		public UserLogic(IUserStorage UserStorage, IDocumentUserStorage documentUserStorage)
 		{
 			_UserStorage = UserStorage;
+			_documentUserStorage = documentUserStorage;
 		}
 		public async Task<List<UserViewModel>?> ReadListAsync(UserSearchModel? model)
 		{
@@ -84,6 +87,20 @@ namespace Logic
 		public async Task<bool> UpdateAsync(UserBindingModel model)
 		{
 			await CheckModelAsync(model);
+			var existing = await _UserStorage.GetElementAsync(new UserSearchModel { Id = model.Id });
+			if (existing == null)
+			{
+				return false;
+			}
+			if (existing.IsActive && !model.IsActive)
+			{
+				var pending = await _documentUserStorage.CountPendingSigningAssignmentsAsync(model.Id);
+				if (pending > 0)
+				{
+					throw new InvalidOperationException(
+						$"Нельзя деактивировать пользователя: у него есть неподписанные документы ({pending}).");
+				}
+			}
 			if (await _UserStorage.UpdateAsync(model) == null)
 			{
 				return false;
@@ -93,6 +110,20 @@ namespace Logic
 		public async Task<bool> DeleteAsync(UserBindingModel model)
 		{
 			await CheckModelAsync(model, false);
+			var existing = await _UserStorage.GetElementAsync(new UserSearchModel { Id = model.Id });
+			if (existing == null)
+			{
+				return false;
+			}
+			if (existing.IsActive)
+			{
+				var pending = await _documentUserStorage.CountPendingSigningAssignmentsAsync(model.Id);
+				if (pending > 0)
+				{
+					throw new InvalidOperationException(
+						$"Нельзя деактивировать пользователя: у него есть неподписанные документы ({pending}).");
+				}
+			}
 			if (await _UserStorage.DeleteAsync(model) == null)
 			{
 				return false;

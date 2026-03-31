@@ -26,13 +26,13 @@ namespace FileStorage
 
 			return GetRelativePath(filePath);
 		}
-
-		public async Task<string> SaveSignatureAsync(int documentId, int signatureId, Stream stream)
+		public async Task<string> SaveSignatureAsync(int documentId, string documentTitle, int userId, Stream stream)
 		{
-			var folder = Path.Combine(_rootPath, "documents", documentId.ToString(), "signatures");
+			var safeTitle = SanitizeFolderName(documentTitle);
+			var folder = Path.Combine(_rootPath, "documents", safeTitle, "signatures");
 			Directory.CreateDirectory(folder);
 
-			var filePath = Path.Combine(folder, $"{signatureId}.sig");
+			var filePath = Path.Combine(folder, $"{userId}.sig");
 
 			using var fileStream = File.Create(filePath);
 			await stream.CopyToAsync(fileStream);
@@ -40,12 +40,13 @@ namespace FileStorage
 			return GetRelativePath(filePath);
 		}
 
-		public async Task<string> SaveSignatureCertificateAsync(int documentId, int signatureId, byte[] cerBytes)
+		public async Task<string> SaveSignatureCertificateAsync(int documentId, string documentTitle, int userId, byte[] cerBytes)
 		{
-			var folder = Path.Combine(_rootPath, "documents", documentId.ToString(), "certificates");
+			var safeTitle = SanitizeFolderName(documentTitle);
+			var folder = Path.Combine(_rootPath, "documents", safeTitle, "certificates");
 			Directory.CreateDirectory(folder);
 
-			var filePath = Path.Combine(folder, $"{signatureId}.cer");
+			var filePath = Path.Combine(folder, $"{userId}.cer");
 			await File.WriteAllBytesAsync(filePath, cerBytes);
 
 			return GetRelativePath(filePath);
@@ -58,9 +59,10 @@ namespace FileStorage
 			return Task.FromResult(stream);
 		}
 
-		public Task DeleteDocumentFolderAsync(int documentId)
+		public Task DeleteDocumentFolderAsync(string documentTitle)
 		{
-			var folder = Path.Combine(_rootPath, "documents", documentId.ToString());
+			var safeTitle = SanitizeFolderName(documentTitle);
+			var folder = Path.Combine(_rootPath, "documents", safeTitle);
 
 			if (Directory.Exists(folder))
 				Directory.Delete(folder, true);
@@ -71,7 +73,6 @@ namespace FileStorage
 		/// <summary>
 		/// Сохраняет файл сертификата.
 		/// Внутренний режим: extension = "pfx" → certificates/{userId}/{number}.pfx
-		/// Внешний режим:    extension = "cer" → certificates/{userId}/{number}.cer
 		/// </summary>
 		public async Task<string> SaveCertificateAsync(int userId, string certificateNumber, byte[] data, string extension)
 		{

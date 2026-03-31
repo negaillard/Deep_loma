@@ -76,7 +76,7 @@ namespace NotificationService.Consumers
 				var bodyBuilder = new BodyBuilder();
 
 				bodyBuilder.TextBody = "Добрый день\n\n" +
-										$"Документ |{title}| доступен для подписания в мобильном приложении.";
+										$"Документ |{title}| доступен для подписания в личном кабинете.";
 
 
 				message.Body = bodyBuilder.ToMessageBody();

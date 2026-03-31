@@ -38,6 +38,7 @@ else
                 <tr>
                     <th style="width:45px;">#</th>
                     <th>Документ</th>
+                    <th>Кто создал</th>
                     <th>Создан</th>
                     <th>Назначен</th>
                     @if (showActions)
@@ -72,6 +73,9 @@ else
                                 </span>
                             }
                         </td>
+                        <td style="font-size:0.82rem;color:#374151;max-width:180px;">
+                            @(string.IsNullOrWhiteSpace(doc.CreatedBy) ? "—" : doc.CreatedBy)
+                        </td>
                         <td style="font-size:0.82rem;color:#6b7280;white-space:nowrap;">
                             @doc.CreatedAt.ToString("dd.MM.yyyy")
                         </td>
@@ -83,7 +87,7 @@ else
                             <td>
                                 <div class="d-flex gap-1 flex-wrap">
                                     <!-- Скачать -->
-                                    <a href="/Documents/Index?handler=Download&id=@doc.Id"
+                                    <a href="/Documents/Index?handler=Download&id=@doc.Id&amp;tab=@tabId"
                                        class="btn btn-sm btn-outline-secondary"
                                        style="font-size:0.75rem;padding:0.25rem 0.55rem;border-radius:6px;"
                                        title="Скачать документ">
@@ -136,18 +140,26 @@ else
                         else
                         {
                             <td>
-                                @{
-                                    var (badgeClass, badgeText, badgeIcon) = doc.UserSigningStatus switch
-                                    {
-                                        SigningStatus.SIGNED   => ("badge-signed",   "Подписан",   "bi-check-circle-fill"),
-                                        SigningStatus.DECLINED => ("badge-declined", "Отклонён",   "bi-x-circle-fill"),
-                                        SigningStatus.PENDING  => ("badge-pending",  "В обработке","bi-hourglass-split"),
-                                        _                      => ("badge-not-signed","Ожидает",    "bi-clock")
-                                    };
-                                }
-                                <span class="status-badge @badgeClass">
-                                    <i class="bi @badgeIcon"></i>@badgeText
-                                </span>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <a href="/Documents/Index?handler=Download&amp;id=@doc.Id&amp;tab=@tabId"
+                                       class="btn btn-sm btn-outline-secondary"
+                                       style="font-size:0.75rem;padding:0.25rem 0.55rem;border-radius:6px;"
+                                       title="Скачать документ">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                    @{
+                                        var (badgeClass, badgeText, badgeIcon) = doc.UserSigningStatus switch
+                                        {
+                                            SigningStatus.SIGNED   => ("badge-signed",   "Подписан",   "bi-check-circle-fill"),
+                                            SigningStatus.DECLINED => ("badge-declined", "Отклонён",   "bi-x-circle-fill"),
+                                            SigningStatus.PENDING  => ("badge-pending",  "В обработке","bi-hourglass-split"),
+                                            _                      => ("badge-not-signed","Ожидает",    "bi-clock")
+                                        };
+                                    }
+                                    <span class="status-badge @badgeClass">
+                                        <i class="bi @badgeIcon"></i>@badgeText
+                                    </span>
+                                </div>
                             </td>
                         }
                     </tr>

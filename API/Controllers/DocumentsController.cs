@@ -11,8 +11,13 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Models;
+using Org.BouncyCastle.Cms;
+using Org.BouncyCastle.Utilities.Collections;
+using Org.BouncyCastle.X509;
+using Org.BouncyCastle.X509.Store;
 using System;
 using System.IO;
+using System.Security.Cryptography.Pkcs;
 
 namespace API.Controllers
 {
@@ -349,38 +354,45 @@ namespace API.Controllers
 					var user = await _userLogic.ReadElementAsync(new UserSearchModel { Id = sig.UserId });
 					var safeName = SanitizeName(user?.Fullname ?? sig.UserId.ToString());
 
-					// файл подписи
-					if (!string.IsNullOrEmpty(sig.Path))
-					{
-						try
+						// файл подписи
+						if (!string.IsNullOrEmpty(sig.Path))
 						{
-							await using var sigStream = await _fileStorage.GetFileAsync(sig.Path);
-							var sigEntry = archive.CreateEntry($"signatures/{safeName}.sig");
-							await using var sigEntryStream = sigEntry.Open();
-							await sigStream.CopyToAsync(sigEntryStream);
-						}
-						catch (Exception ex)
-						{
-							_logger.LogWarning(ex, "Не удалось добавить файл подписи {Path}", sig.Path);
-						}
-					}
+							try
+							{
+								await using var sigStream = await _fileStorage.GetFileAsync(sig.Path);
 
-					// публичный сертификат
-					if (!string.IsNullOrEmpty(sig.CertificatePath))
-					{
-						try
-						{
-							await using var cerStream = await _fileStorage.GetFileAsync(sig.CertificatePath);
-							var cerEntry = archive.CreateEntry($"certificates/{safeName}.cer");
-							await using var cerEntryStream = cerEntry.Open();
-							await cerStream.CopyToAsync(cerEntryStream);
-						}
-						catch (Exception ex)
-						{
-							_logger.LogWarning(ex, "Не удалось добавить сертификат {Path}", sig.CertificatePath);
+								using var sigBuffer = new MemoryStream();
+								await sigStream.CopyToAsync(sigBuffer);
+								sigBuffer.Position = 0;
+
+								// Сохраняем файл подписи
+								var sigEntry = archive.CreateEntry($"signatures/{safeName}.sig");
+								await using var sigEntryStream = sigEntry.Open();
+								sigBuffer.Position = 0;
+								await sigBuffer.CopyToAsync(sigEntryStream);
+
+								// PKCS#7 detached: публичный сертификат обычно вложен в SignedData (как в SigningService)
+								sigBuffer.Position = 0;
+								var cerData = ExtractCertificateFromSignature(sigBuffer);
+
+								if (cerData != null)
+								{
+									var cerEntry = archive.CreateEntry($"certificates/{safeName}.cer");
+									await using var cerEntryStream = cerEntry.Open();
+									await cerEntryStream.WriteAsync(cerData);
+									_logger.LogInformation("Сертификат извлечен из подписи {Path}", sig.Path);
+								}
+								else
+								{
+									_logger.LogWarning("Не удалось извлечь сертификат из подписи {Path}", sig.Path);
+								}
+							}
+							catch (Exception ex)
+							{
+								_logger.LogWarning(ex, "Не удалось обработать файл подписи {Path}", sig.Path);
+							}
 						}
 					}
-				}
 
 				// инструкция по верификации
 				var readmeEntry = archive.CreateEntry("README.txt");
@@ -400,6 +412,43 @@ namespace API.Controllers
 			_logger.LogError(ex, "Ошибка при формировании пакета верификации для документа {Id}", id);
 			return BadRequest("Ошибка при формировании пакета: " + ex.Message);
 		}
+	}
+		
+	/// <summary>
+	/// Первый сертификат из PKCS#7 (.sig). Для ГОСТ BouncyCastle кладёт сертификаты в CMS, но
+	/// <see cref="SignedCms.Certificates"/> часто пуст — тогда разбираем через BouncyCastle.
+	/// </summary>
+	private static byte[]? ExtractCertificateFromSignature(Stream signatureP7Bytes)
+	{
+		using var ms = new MemoryStream();
+		signatureP7Bytes.CopyTo(ms);
+		var bytes = ms.ToArray();
+
+		try
+		{
+			var signedCms = new SignedCms();
+			signedCms.Decode(bytes);
+			if (signedCms.Certificates.Count > 0)
+				return signedCms.Certificates[0].RawData;
+		}
+		catch
+		{
+			// неподдерживаемый алгоритм / формат для SignedCms
+		}
+
+		try
+		{
+			var cms = new CmsSignedData(bytes);
+			var store = cms.GetCertificates();
+			var selector = new X509CertStoreSelector();
+			foreach (X509Certificate cert in store.EnumerateMatches(selector))
+				return cert.GetEncoded();
+		}
+		catch
+		{
+		}
+
+		return null;
 	}
 
 	// вспомогательные

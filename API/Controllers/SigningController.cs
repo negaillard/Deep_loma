@@ -17,6 +17,7 @@ namespace API.Controllers
 	public class SigningController : ControllerBase
 	{
 		private readonly IDocumentUserLogic _documentUserLogic;
+		private readonly IDocumentLogic _documentLogic;
 		private readonly IUserLogic _userLogic;
 		private readonly IPublishEndpoint _publishEndpoint;
 		private readonly ISignatureStorage _signatureStorage;
@@ -25,6 +26,7 @@ namespace API.Controllers
 
 		public SigningController(
 			IDocumentUserLogic documentUserLogic,
+			IDocumentLogic documentLogic,
 			IUserLogic userLogic,
 			IPublishEndpoint publishEndpoint,
 			ISignatureStorage signatureStorage,
@@ -32,6 +34,7 @@ namespace API.Controllers
 			ILogger<SigningController> logger)
 		{
 			_documentUserLogic = documentUserLogic;
+			_documentLogic = documentLogic;
 			_userLogic = userLogic;
 			_publishEndpoint = publishEndpoint;
 			_signatureStorage = signatureStorage;
@@ -242,7 +245,7 @@ namespace API.Controllers
 						return BadRequest("Ещё не все предыдущие подписанты подписали документ");
 				}
 
-				// Создаём запись подписи без пути (нужен ID для имени файла)
+				// Создаём запись подписи без пути (файл подписи именуется по UserId)
 				var sigRecord = await _signatureStorage.InsertAsync(new SignatureBindingModel
 				{
 					UserId = user.Id,
@@ -257,9 +260,13 @@ namespace API.Controllers
 				if (sigRecord == null)
 					return BadRequest("Не удалось создать запись подписи");
 
-				// Сохраняем .sig файл
+				var document = await _documentLogic.ReadElementAsync(new DocumentSearchModel { Id = id });
+				if (document == null || document.IsDeleted)
+					return NotFound("Документ не найден");
+
+				// Сохраняем .sig в documents/{название}/signatures/{userId}.sig
 				using var sigStream = new MemoryStream(signatureBytes);
-				var sigPath = await _fileStorage.SaveSignatureAsync(id, sigRecord.Id, sigStream);
+				var sigPath = await _fileStorage.SaveSignatureAsync(id, document.Title, user.Id, sigStream);
 
 				// Извлекаем публичный сертификат из PKCS#7
 				string certPath = string.Empty;
@@ -273,7 +280,7 @@ namespace API.Controllers
 						if (cert != null)
 						{
 							var cerBytes = cert.Export(System.Security.Cryptography.X509Certificates.X509ContentType.Cert);
-							certPath = await _fileStorage.SaveSignatureCertificateAsync(id, sigRecord.Id, cerBytes);
+							certPath = await _fileStorage.SaveSignatureCertificateAsync(id, document.Title, user.Id, cerBytes);
 						}
 					}
 				}

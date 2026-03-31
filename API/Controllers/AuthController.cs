@@ -1,4 +1,4 @@
-﻿using Contracts.LogicContracts;
+using Contracts.LogicContracts;
 using Contracts.LogicContracts.Authentication;
 using Contracts.Requests;
 using Contracts.Responses;
@@ -43,6 +43,11 @@ namespace API.Controllers
 				if (user == null)
 				{
 					return BadRequest("Пользователь с таким логином не найден");
+				}
+
+				if (!user.IsActive)
+				{
+					return BadRequest("Учётная запись деактивирована. Вход невозможен.");
 				}
 
 				if (!IsAppTypeAllowed(user.SystemRole, request.appType))
@@ -96,6 +101,11 @@ namespace API.Controllers
 					return BadRequest("Ошибка при получении пользователя");
 				}
 
+				if (!user.IsActive)
+				{
+					return BadRequest("Учётная запись деактивирована. Вход невозможен.");
+				}
+
 				var codeResult = await _codeVerificationLogic.VerifyCodeAsync(user.Email, request.Code);
 
 				if (!codeResult.success)
@@ -137,11 +147,15 @@ namespace API.Controllers
 			if (string.IsNullOrEmpty(sessionId))
 				return Unauthorized();
 
-			var isValid = await _sessionService.ValidateSessionAsync(sessionId);
-			if (!isValid.Item1)
+			var session = await _sessionService.GetSessionAsync(sessionId);
+			if (session == null || !session.IsActive || session.ExpiresAt <= DateTime.UtcNow)
 				return Unauthorized();
 
-			return Ok(new ValidateSessionResponse { IsValid = true, Login = isValid.Item2 });
+			var user = await _userLogic.ReadElementAsync(new UserSearchModel { Id = session.UserId });
+			if (user == null || !user.IsActive)
+				return Unauthorized();
+
+			return Ok(new ValidateSessionResponse { IsValid = true, Login = session.Username });
 		}
 	}
 }

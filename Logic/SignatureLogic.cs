@@ -13,10 +13,12 @@ namespace Logic
 	public class SignatureLogic : ISignatureLogic
 	{
 		private readonly ISignatureStorage _SignatureStorage;
+		private readonly IDocumentStorage _documentStorage;
 		private readonly IFileStorage _fileStorage;
-		public SignatureLogic(ISignatureStorage SignatureStorage, IFileStorage fileStorage)
+		public SignatureLogic(ISignatureStorage SignatureStorage, IDocumentStorage documentStorage, IFileStorage fileStorage)
 		{
 			_SignatureStorage = SignatureStorage;
+			_documentStorage = documentStorage;
 			_fileStorage = fileStorage;
 		}
 
@@ -73,7 +75,10 @@ namespace Logic
 				return false;
 			}
 			model.Id = created.Id;
-			model.Path = await _fileStorage.SaveSignatureAsync(model.DocumentId, created.Id, file);
+			var document = await _documentStorage.GetElementAsync(new DocumentSearchModel { Id = model.DocumentId });
+			if (document == null)
+				throw new InvalidOperationException("Документ не найден");
+			model.Path = await _fileStorage.SaveSignatureAsync(model.DocumentId, document.Title, model.UserId, file);
 			if (await _SignatureStorage.UpdateAsync(model) == null)
 			{
 				return false;

@@ -168,6 +168,7 @@ namespace Storage.Storages
 					Id = du.DocumentId,
 					Title = du.Document.Title,
 					Description = du.Document.Description,
+					CreatedBy = du.Document.CreatedUser != null ? du.Document.CreatedUser.Fullname : string.Empty,
 					CreatedAt = du.Document.CreatedAt,
 					DocumentStatus = du.Document.Status,
 					IsSequential = du.Document.IsSequential,
@@ -178,6 +179,19 @@ namespace Storage.Storages
 				.ToListAsync();
 
 			return (items, totalCount);
+		}
+
+		public async Task<int> CountPendingSigningAssignmentsAsync(int userId)
+		{
+			using var context = new StorageContext();
+			return await (
+				from du in context.DocumentUsers
+				join d in context.Documents on du.DocumentId equals d.Id
+				where du.UserId == userId
+					&& !d.IsDeleted
+					&& (du.SigningStatus == SigningStatus.NOT_SIGNED
+						|| du.SigningStatus == SigningStatus.PENDING)
+				select du).CountAsync();
 		}
 
 		/// здесь ТОЛЬКО обновление статуса документа, НЕ статуса ДОКУМЕНТ-ЮЗЕР. 

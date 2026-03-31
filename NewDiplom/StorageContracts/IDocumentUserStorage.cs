@@ -26,5 +26,10 @@ namespace Contracts.StorageContracts
 		/// </summary>
 		Task<(List<DocumentForSignViewModel> Items, int TotalCount)> GetPagedForSignAsync(
 			int userId, SigningStatus? signingStatus, int pageNumber, int pageSize);
+
+		/// <summary>
+		/// Количество назначений пользователю, по которым подпись ещё не завершена (ожидает подписи или очередь).
+		/// </summary>
+		Task<int> CountPendingSigningAssignmentsAsync(int userId);
 	}
 }

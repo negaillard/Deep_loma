@@ -17,7 +17,11 @@ builder.Services.AddScoped<IFileStorage, LocalFileStorage>();
 
 
 // В режиме Local подписание происходит на клиенте, SigningService не используется
-builder.Services.AddScoped<IDocumentSigner, InternalDocumentSigner>();
+var internalCrypto = builder.Configuration["InternalCryptoAlgorithm"] ?? "Rsa";
+if (string.Equals(internalCrypto, "Gost", StringComparison.OrdinalIgnoreCase))
+	builder.Services.AddScoped<IDocumentSigner, InternalDocumentSignerGost>();
+else
+	builder.Services.AddScoped<IDocumentSigner, InternalDocumentSigner>();
 
 builder.Services.AddMassTransit(x =>
 {

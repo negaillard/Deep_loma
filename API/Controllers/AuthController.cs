@@ -76,6 +76,17 @@ namespace API.Controllers
 
 		private static bool IsAppTypeAllowed(SystemRole role, AppType appType)
 		{
+			if (appType == AppType.DEMO_APP)
+			{
+				return role switch
+				{
+					SystemRole.SystemAdmin => true,
+					SystemRole.Signer => true,
+					SystemRole.DocumentManager => true,
+					_ => false
+				};
+			}
+
 			return role switch
 			{
 				SystemRole.SystemAdmin => true,

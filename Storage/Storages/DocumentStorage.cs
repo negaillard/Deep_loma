@@ -12,10 +12,16 @@ namespace Storage.Storages
 {
 	public class DocumentStorage : IDocumentStorage
 	{
+		private readonly StorageContext _context;
+
+		public DocumentStorage(StorageContext context)
+		{
+			_context = context;
+		}
+
 		public async Task<DocumentViewModel?> DeleteAsync(DocumentBindingModel model)
 		{
-			using var context = new StorageContext();
-			var element = await context.Documents.FirstOrDefaultAsync(rec => rec.Id == model.Id);
+			var element = await _context.Documents.FirstOrDefaultAsync(rec => rec.Id == model.Id);
 			if (element != null)
 			{
 				if (element.IsDeleted)
@@ -23,7 +29,7 @@ namespace Storage.Storages
 					return element.GetViewModel;
 				}
 				element.IsDeleted = true;
-				await context.SaveChangesAsync();
+				await _context.SaveChangesAsync();
 				return element.GetViewModel;
 			}
 			return null;
@@ -35,8 +41,7 @@ namespace Storage.Storages
 			{
 				return null;
 			}
-			using var context = new StorageContext();
-			var query = context.Documents.AsQueryable();
+			var query = _context.Documents.AsQueryable();
 			if (!model.IsDeleted.HasValue || model.IsDeleted.Value == false)
 			{
 				query = query.Where(x => !x.IsDeleted);
@@ -88,8 +93,7 @@ namespace Storage.Storages
 
 		public async Task<List<DocumentViewModel>> GetFilteredListAsync(DocumentSearchModel model)
 		{
-			using var context = new StorageContext();
-			var query = ApplyDocumentFilters(context.Documents.AsQueryable(), model);
+			var query = ApplyDocumentFilters(_context.Documents.AsQueryable(), model);
 			query = query.OrderByDescending(x => x.CreatedAt);
 			return await query.Select(x => x.GetViewModel).ToListAsync();
 		}
@@ -99,8 +103,7 @@ namespace Storage.Storages
 			if (!model.PageNumber.HasValue || !model.PageSize.HasValue || model.PageNumber < 1 || model.PageSize < 1)
 				return ([], 0);
 
-			using var context = new StorageContext();
-			var query = ApplyDocumentFilters(context.Documents.AsQueryable(), model);
+			var query = ApplyDocumentFilters(_context.Documents.AsQueryable(), model);
 			query = query.OrderByDescending(x => x.CreatedAt);
 			var totalCount = await query.CountAsync();
 			var skip = (model.PageNumber.Value - 1) * model.PageSize.Value;
@@ -114,8 +117,7 @@ namespace Storage.Storages
 
 		public async Task<List<DocumentViewModel>> GetFullListAsync()
 		{
-			using var context = new StorageContext();
-			return await context.Documents
+			return await _context.Documents
 				.Where(x => !x.IsDeleted)
 				.Select(x => x.GetViewModel)
 				.ToListAsync();
@@ -134,17 +136,16 @@ namespace Storage.Storages
 			{
 				return null;
 			}
-			using var context = new StorageContext();
 			newDocument.IsDeleted = false;
-			await context.Documents.AddAsync(newDocument);
-			await context.SaveChangesAsync();
+			await _context.Documents.AddAsync(newDocument);
+			await _context.SaveChangesAsync();
 			if (model.UserIds != null && model.UserIds.Count > 0)
 			{
 				var userIds = model.IsSequential
 					? model.UserIds
 					: model.UserIds.Distinct().ToList();
 
-				var activeUserIds = await context.Users
+				var activeUserIds = await _context.Users
 					.Where(x => userIds.Contains(x.Id) && x.IsActive)
 					.Select(x => x.Id)
 					.ToListAsync();
@@ -165,24 +166,22 @@ namespace Storage.Storages
 						Order = model.IsSequential ? index + 1 : 0,
 					})
 					.ToList();
-				await context.DocumentUsers.AddRangeAsync(documentUsers);
-				await context.SaveChangesAsync();
+				await _context.DocumentUsers.AddRangeAsync(documentUsers);
+				await _context.SaveChangesAsync();
 			}
 			return newDocument.GetViewModel;
 		}
 
 		public async Task<DocumentViewModel?> UpdateAsync(DocumentBindingModel model)
 		{
-			using var context = new StorageContext();
-			var document = await context.Documents.FirstOrDefaultAsync(x => x.Id == model.Id);
+			var document = await _context.Documents.FirstOrDefaultAsync(x => x.Id == model.Id);
 			if (document == null)
 			{
 				return null;
 			}
 			document.Update(model);
-			await context.SaveChangesAsync();
+			await _context.SaveChangesAsync();
 			return document.GetViewModel;
 		}
 	}
 }
-

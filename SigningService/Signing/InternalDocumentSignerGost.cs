@@ -5,6 +5,7 @@ using Org.BouncyCastle.Cms;
 using Org.BouncyCastle.Crypto.Operators;
 using Org.BouncyCastle.Pkcs;
 using Org.BouncyCastle.Security;
+using Org.BouncyCastle.Utilities.Collections;
 using Org.BouncyCastle.X509;
 using System.Linq;
 
@@ -47,6 +48,9 @@ namespace SigningService.Signing
 
 			var cmsGen = new CmsSignedDataGenerator(); // генератор SignedData (PKCS#7)
 			cmsGen.AddSignerInfoGenerator(signerInfoGen); // добавляем одного подписанта
+			// Иначе в SignedData.certificates пусто — просмотрщики и SignedCms.Certificates не видят владельца.
+			// BC 2.x: вместо удалённого CollectionStore — CollectionUtilities.CreateStore.
+			cmsGen.AddCertificates(CollectionUtilities.CreateStore(new[] { bcCert }));
 
 			var content = new CmsProcessableByteArray(documentBytes); // оборачиваем байты документа как содержимое CMS
 			var signedData = cmsGen.Generate(content, encapsulate: false); // detached: тело документа не внутри SignedData

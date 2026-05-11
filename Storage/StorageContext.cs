@@ -1,27 +1,16 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Storage.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Storage
 {
 	public class StorageContext : DbContext
 	{
-		protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+		public StorageContext()
 		{
-			if (optionsBuilder.IsConfigured == false)
-			{
-				optionsBuilder.UseSqlServer(@"  Data Source=localhost\SQLEXPRESS;
-												Initial Catalog=DCP;
-												Integrated Security=True;
-												MultipleActiveResultSets=True;;
-												TrustServerCertificate=True");
+		}
 
-			}
-			base.OnConfiguring(optionsBuilder);
+		public StorageContext(DbContextOptions<StorageContext> options) : base(options)
+		{
 		}
 
 		public virtual DbSet<User> Users { set; get; }

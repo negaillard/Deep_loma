@@ -14,10 +14,16 @@ namespace Storage.Storages
 {
 	public class UserStorage : IUserStorage
 	{
+		private readonly StorageContext _context;
+
+		public UserStorage(StorageContext context)
+		{
+			_context = context;
+		}
+
 		public async Task<UserViewModel?> DeleteAsync(UserBindingModel model)
 		{
-			using var context = new StorageContext();
-			var element = await context.Users.FirstOrDefaultAsync(rec => rec.Id == model.Id);
+			var element = await _context.Users.FirstOrDefaultAsync(rec => rec.Id == model.Id);
 			if (element != null)
 			{
 				if (!element.IsActive)
@@ -25,7 +31,7 @@ namespace Storage.Storages
 					return element.GetViewModel;
 				}
 				element.IsActive = false;
-				await context.SaveChangesAsync();
+				await _context.SaveChangesAsync();
 				return element.GetViewModel;
 			}
 			return null;
@@ -37,8 +43,7 @@ namespace Storage.Storages
 			{
 				return null;
 			}
-			using var context = new StorageContext();
-			var query = context.Users.AsQueryable();
+			var query = _context.Users.AsQueryable();
 			if (model.IsActive.HasValue)
 			{
 				query = query.Where(x => x.IsActive == model.IsActive.Value);
@@ -58,8 +63,7 @@ namespace Storage.Storages
 			{
 				return new();
 			}
-			using var context = new StorageContext();
-			var query = context.Users.AsQueryable();
+			var query = _context.Users.AsQueryable();
 			return await query
 				.Where(x =>
 				(!string.IsNullOrEmpty(model.Login) && x.Login == model.Login) || (model.RoleId.HasValue && x.RoleId == model.RoleId))
@@ -73,8 +77,7 @@ namespace Storage.Storages
 			{
 				return new();
 			}
-			using var context = new StorageContext();
-			var query = context.Users.AsQueryable();
+			var query = _context.Users.AsQueryable();
 			if (model.IsActive.HasValue)
 			{
 				query = query.Where(x => x.IsActive == model.IsActive.Value);
@@ -87,8 +90,7 @@ namespace Storage.Storages
 
 		public async Task<List<UserViewModel>> GetFullListAsync()
 		{
-			using var context = new StorageContext();
-			return await context.Users
+			return await _context.Users
 				.Select(x => x.GetViewModel)
 				.ToListAsync();
 		}
@@ -100,8 +102,7 @@ namespace Storage.Storages
 				return new();
 			}
 			var skip = (model.PageNumber.Value - 1) * model.PageSize.Value;
-			using var context = new StorageContext();
-			var query = context.Users.AsQueryable();
+			var query = _context.Users.AsQueryable();
 			if (model.IsActive.HasValue)
 			{
 				query = query.Where(x => x.IsActive == model.IsActive.Value);
@@ -121,23 +122,21 @@ namespace Storage.Storages
 			{
 				return null;
 			}
-			using var context = new StorageContext();
 			newUser.IsActive = model.IsActive;
-			await context.Users.AddAsync(newUser);
-			await context.SaveChangesAsync();
+			await _context.Users.AddAsync(newUser);
+			await _context.SaveChangesAsync();
 			return newUser.GetViewModel;
 		}
 
 		public async Task<UserViewModel?> UpdateAsync(UserBindingModel model)
 		{
-			using var context = new StorageContext();
-			var user = await context.Users.FirstOrDefaultAsync(x => x.Id == model.Id);
+			var user = await _context.Users.FirstOrDefaultAsync(x => x.Id == model.Id);
 			if (user == null)
 			{
 				return null;
 			}
 			user.Update(model);
-			await context.SaveChangesAsync();
+			await _context.SaveChangesAsync();
 			return user.GetViewModel;
 		}
 	}

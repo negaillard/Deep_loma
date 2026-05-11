@@ -11,13 +11,11 @@
 	<ItemGroup>
 		<PackageReference Include="MailKit" Version="4.15.1" />
 		<PackageReference Include="MimeKit" Version="4.15.1" />
-		<PackageReference Include="MassTransit.RabbitMQ" Version="9.0.1" />
+		<PackageReference Include="MassTransit.RabbitMQ" Version="8.3.4" />
 		<PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
 	</ItemGroup>
 	
   <ItemGroup>
-	  <ProjectReference Include="..\Storage\Storage.csproj" />
-	  <ProjectReference Include="..\Models\Models.csproj" />
 	  <ProjectReference Include="..\MessageContracts\MessageContracts.csproj" />
 	  <ProjectReference Include="..\NewDiplom\Contracts.csproj" />
   </ItemGroup>

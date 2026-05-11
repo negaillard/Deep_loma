@@ -1,0 +1,435 @@
+@using Models
+@{
+    var roleStr = User.FindFirst("SystemRole")?.Value;
+    SystemRole? sysRole = null;
+    if (!string.IsNullOrEmpty(roleStr) && Enum.TryParse<SystemRole>(roleStr, out var parsed))
+        sysRole = parsed;
+    var showAdmin = sysRole == SystemRole.SystemAdmin;
+    var showDocs = sysRole == SystemRole.SystemAdmin || sysRole == SystemRole.DocumentManager;
+    var showSign = sysRole == SystemRole.SystemAdmin || sysRole == SystemRole.DocumentManager || sysRole == SystemRole.Signer;
+    string? pagePath = ViewContext.RouteData.Values["page"]?.ToString();
+}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] — Демо ЭДО</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+    <style>
+        :root {
+            --sidebar-width: 240px;
+            --sidebar-bg: #1a1f2e;
+            --sidebar-accent: #4f8ef7;
+            --topbar-height: 56px;
+        }
+
+        body {
+            background-color: #f4f6fb;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: var(--sidebar-width);
+            height: 100vh;
+            background: var(--sidebar-bg);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-brand {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .sidebar-brand .brand-title {
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            margin: 0;
+        }
+
+        .sidebar-brand .brand-subtitle {
+            color: rgba(255,255,255,0.45);
+            font-size: 0.72rem;
+            margin: 0;
+        }
+
+        .sidebar-nav {
+            padding: 1rem 0;
+            flex: 1;
+        }
+
+        .nav-section-label {
+            padding: 0.4rem 1.5rem;
+            font-size: 0.65rem;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.3);
+            margin-top: 0.5rem;
+        }
+
+        .sidebar .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.6rem 1.5rem;
+            color: rgba(255,255,255,0.65);
+            font-size: 0.875rem;
+            border-radius: 0;
+            transition: all 0.15s ease;
+            text-decoration: none;
+            position: relative;
+        }
+
+        .sidebar .nav-link:hover {
+            color: #fff;
+            background: rgba(255,255,255,0.07);
+        }
+
+        .sidebar .nav-link.active {
+            color: #fff;
+            background: rgba(79,142,247,0.18);
+        }
+
+        .sidebar .nav-link.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: var(--sidebar-accent);
+            border-radius: 0 2px 2px 0;
+        }
+
+        .sidebar .nav-link i {
+            font-size: 1rem;
+            width: 18px;
+            text-align: center;
+        }
+
+        .sidebar-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .main-wrapper {
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .topbar {
+            height: var(--topbar-height);
+            background: #fff;
+            border-bottom: 1px solid #e8ecf0;
+            display: flex;
+            align-items: center;
+            padding: 0 1.75rem;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 900;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+
+        .topbar-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1a1f2e;
+            margin: 0;
+        }
+
+        .topbar-user {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-size: 0.875rem;
+            color: #555;
+        }
+
+        .topbar-user .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--sidebar-accent);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .page-content {
+            padding: 1.75rem;
+            flex: 1;
+        }
+
+        .card {
+            border: 1px solid #e8ecf0;
+            border-radius: 10px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        }
+
+        .card-header {
+            background: #fff;
+            border-bottom: 1px solid #e8ecf0;
+            padding: 1rem 1.25rem;
+            border-radius: 10px 10px 0 0 !important;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #1a1f2e;
+        }
+
+        .card-header i {
+            color: var(--sidebar-accent);
+        }
+
+        .table th {
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6b7280;
+            border-bottom: 2px solid #e8ecf0;
+            background: #fafbfc;
+        }
+
+        .table td {
+            font-size: 0.875rem;
+            vertical-align: middle;
+            color: #374151;
+        }
+
+        .table-hover tbody tr:hover {
+            background-color: #f8faff;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.2rem 0.65rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .status-badge.not-signed   { background: #fef3c7; color: #92400e; }
+        .status-badge.partly       { background: #dbeafe; color: #1e40af; }
+        .status-badge.signed       { background: #d1fae5; color: #065f46; }
+        .status-badge.declined     { background: #fee2e2; color: #991b1b; }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--sidebar-accent);
+            box-shadow: 0 0 0 0.2rem rgba(79,142,247,0.15);
+        }
+
+        .btn-primary {
+            background: var(--sidebar-accent);
+            border-color: var(--sidebar-accent);
+        }
+
+        .btn-primary:hover {
+            background: #3a7bd5;
+            border-color: #3a7bd5;
+        }
+
+        .pagination-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.25rem;
+            border-top: 1px solid #e8ecf0;
+            background: #fafbfc;
+            border-radius: 0 0 10px 10px;
+        }
+
+        .page-info {
+            font-size: 0.82rem;
+            color: #6b7280;
+            margin-left: auto;
+        }
+
+        .signer-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 20px;
+            padding: 0.2rem 0.6rem;
+            font-size: 0.78rem;
+            color: #1e40af;
+            margin: 0.15rem;
+        }
+
+        .signer-chip .remove-btn {
+            background: none;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            color: #93c5fd;
+            font-size: 0.75rem;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+        }
+
+        .signer-chip .remove-btn:hover {
+            color: #1e40af;
+        }
+
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border: 1px solid #e8ecf0;
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            z-index: 500;
+            max-height: 220px;
+            overflow-y: auto;
+        }
+
+        .search-result-item {
+            padding: 0.55rem 0.85rem;
+            cursor: pointer;
+            font-size: 0.85rem;
+            border-bottom: 1px solid #f3f4f6;
+            transition: background 0.1s;
+        }
+
+        .search-result-item:last-child { border-bottom: none; }
+
+        .search-result-item:hover {
+            background: #f0f7ff;
+        }
+
+        .search-result-item .user-name { font-weight: 500; color: #111827; }
+        .search-result-item .user-login { font-size: 0.75rem; color: #9ca3af; }
+
+        .role-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.2rem 0.65rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .role-badge.admin { background: #fef3c7; color: #92400e; }
+        .role-badge.manager { background: #dbeafe; color: #1e40af; }
+        .role-badge.signer { background: #d1fae5; color: #065f46; }
+
+        .badge-not-signed { background: #fff7ed; color: #c2410c; }
+        .badge-pending    { background: #eff6ff; color: #1d4ed8; }
+        .badge-signed     { background: #d1fae5; color: #065f46; }
+        .badge-declined   { background: #fee2e2; color: #991b1b; }
+    </style>
+    @await RenderSectionAsync("Styles", required: false)
+</head>
+<body>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <nav class="sidebar">
+            <div class="sidebar-brand">
+                <p class="brand-title"><i class="bi bi-layers me-2" style="color: var(--sidebar-accent)"></i>Демо ЭДО</p>
+                <p class="brand-subtitle">Единый вход по ролям</p>
+            </div>
+
+            <div class="sidebar-nav">
+                @if (showAdmin)
+                {
+                    <div class="nav-section-label">Администрирование</div>
+                    <a class="nav-link @(pagePath?.StartsWith("/Roles", StringComparison.Ordinal) == true ? "active" : "")"
+                       href="/Roles">
+                        <i class="bi bi-person-badge"></i> Роли
+                    </a>
+                    <a class="nav-link @(pagePath?.StartsWith("/Users", StringComparison.Ordinal) == true ? "active" : "")"
+                       href="/Users">
+                        <i class="bi bi-people"></i> Пользователи
+                    </a>
+                }
+                @if (showDocs)
+                {
+                    <div class="nav-section-label">Документооборот</div>
+                    <a class="nav-link @(pagePath?.StartsWith("/Documents/Index", StringComparison.Ordinal) == true || pagePath == "/Index" ? "active" : "")"
+                       href="/Documents/Index">
+                        <i class="bi bi-send"></i> Отправка и статусы
+                    </a>
+                    <a class="nav-link @(pagePath?.StartsWith("/Documents/Archive", StringComparison.Ordinal) == true ? "active" : "")"
+                       href="/Documents/Archive">
+                        <i class="bi bi-archive"></i> Архив
+                    </a>
+                }
+                @if (showSign)
+                {
+                    <div class="nav-section-label">Подписание</div>
+                    <a class="nav-link @(pagePath?.StartsWith("/Sign", StringComparison.Ordinal) == true ? "active" : "")"
+                       href="/Sign">
+                        <i class="bi bi-pen"></i> На подписание
+                    </a>
+                }
+            </div>
+
+            <div class="sidebar-footer">
+                <form method="post" action="/Account/Logout">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-sm w-100 text-start"
+                            style="color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.06); border: none; padding: 0.5rem 0.75rem; border-radius: 6px;">
+                        <i class="bi bi-box-arrow-left me-2"></i>Выйти
+                    </button>
+                </form>
+            </div>
+        </nav>
+
+        <div class="main-wrapper">
+            <div class="topbar">
+                <h1 class="topbar-title">@ViewData["Title"]</h1>
+                <div class="topbar-user">
+                    <div class="avatar">
+                        @(User.Identity?.Name?.Length > 0 ? User.Identity.Name[0].ToString().ToUpper() : "U")
+                    </div>
+                    <span>@User.Identity?.Name</span>
+                    @if (sysRole.HasValue)
+                    {
+                        <span class="badge bg-secondary" style="font-size: 0.7rem;">@(
+                            sysRole.Value switch
+                            {
+                                SystemRole.SystemAdmin => "Администратор",
+                                SystemRole.DocumentManager => "Менеджер документов",
+                                SystemRole.Signer => "Подписант",
+                                _ => sysRole.Value.ToString()
+                            })</span>
+                    }
+                </div>
+            </div>
+
+            <main class="page-content">
+                @RenderBody()
+            </main>
+        </div>
+    }
+    else
+    {
+        @RenderBody()
+    }
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

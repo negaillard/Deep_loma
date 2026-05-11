@@ -1,0 +1,220 @@
+@using Contracts.ViewModels
+@using Models
+@{
+    var docs         = (PagedResult<DocumentForSignViewModel>)ViewData["Docs"]!;
+    var tabId        = (string)ViewData["TabId"]!;
+    var pageParam    = (string)ViewData["PageParam"]!;
+    var showActions  = (bool)ViewData["ShowActions"]!;
+    var certMode     = (CertificateMode)ViewData["CertificateMode"]!;
+
+    int pendingPage  = ViewData.ContainsKey("PendingPage")  ? (int)ViewData["PendingPage"]!  : 1;
+    int signedPage   = ViewData.ContainsKey("SignedPage")   ? (int)ViewData["SignedPage"]!   : 1;
+    int declinedPage = ViewData.ContainsKey("DeclinedPage") ? (int)ViewData["DeclinedPage"]! : 1;
+
+    int currentPage = tabId == "pending"  ? pendingPage
+                    : tabId == "signed"   ? signedPage
+                    : declinedPage;
+    if (tabId == "pending")  pendingPage  = docs.PageNumber;
+    if (tabId == "signed")   signedPage   = docs.PageNumber;
+    if (tabId == "declined") declinedPage = docs.PageNumber;
+}
+
+@if (docs.Items.Count == 0)
+{
+    <div class="text-center py-5">
+        <i class="bi bi-inbox" style="font-size:2.5rem;color:#d1d5db;"></i>
+        <p class="mt-2 mb-0" style="color:#9ca3af;font-size:0.875rem;">
+            @(tabId == "pending"  ? "Нет документов, ожидающих подписи" :
+              tabId == "signed"   ? "Нет подписанных документов" :
+                                    "Нет отклонённых документов")
+        </p>
+    </div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th style="width:45px;">#</th>
+                    <th>Документ</th>
+                    <th>Кто создал</th>
+                    <th>Создан</th>
+                    <th>Назначен</th>
+                    @if (showActions)
+                    {
+                        <th style="width:200px;">Действия</th>
+                    }
+                    else
+                    {
+                        <th>Статус</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var doc in docs.Items)
+                {
+                    <tr>
+                        <td>
+                            <span style="font-size:0.78rem;color:#9ca3af;font-family:monospace;">@doc.Id</span>
+                        </td>
+                        <td>
+                            <div style="font-weight:500;color:#111827;">@doc.Title</div>
+                            @if (!string.IsNullOrWhiteSpace(doc.Description))
+                            {
+                                <div style="font-size:0.75rem;color:#9ca3af;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                                    @doc.Description
+                                </div>
+                            }
+                            @if (doc.IsSequential)
+                            {
+                                <span style="font-size:0.68rem;background:#eff6ff;color:#1d4ed8;padding:0.1rem 0.4rem;border-radius:4px;font-weight:600;">
+                                    Последовательная — позиция @doc.Order
+                                </span>
+                            }
+                        </td>
+                        <td style="font-size:0.82rem;color:#374151;max-width:180px;">
+                            @(string.IsNullOrWhiteSpace(doc.CreatedBy) ? "—" : doc.CreatedBy)
+                        </td>
+                        <td style="font-size:0.82rem;color:#6b7280;white-space:nowrap;">
+                            @doc.CreatedAt.ToString("dd.MM.yyyy")
+                        </td>
+                        <td style="font-size:0.82rem;color:#6b7280;white-space:nowrap;">
+                            @(doc.AssignedAt?.ToString("dd.MM.yyyy") ?? "—")
+                        </td>
+                        @if (showActions)
+                        {
+                            <td>
+                                <div class="d-flex gap-1 flex-wrap">
+                                    <!-- Скачать -->
+                                    <a href="/Sign?handler=Download&id=@doc.Id&amp;tab=@tabId"
+                                       class="btn btn-sm btn-outline-secondary"
+                                       style="font-size:0.75rem;padding:0.25rem 0.55rem;border-radius:6px;"
+                                       title="Скачать документ">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+
+                                    @if (certMode == CertificateMode.Internal)
+                                    {
+                                        <!-- Internal: кнопка намерения подписать -->
+                                        <form method="post" style="display:inline;">
+                                            <input type="hidden" name="id" value="@doc.Id" />
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" asp-page-handler="SignIntent"
+                                                    class="btn btn-sm"
+                                                    style="background:#4f8ef7;color:#fff;border:none;border-radius:6px;font-size:0.75rem;padding:0.25rem 0.55rem;"
+                                                    title="Подписать">
+                                                <i class="bi bi-pen"></i> Подписать
+                                            </button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <!-- Local: открыть модал загрузки подписи -->
+                                        <button type="button"
+                                                class="btn btn-sm"
+                                                style="background:#059669;color:#fff;border:none;border-radius:6px;font-size:0.75rem;padding:0.25rem 0.55rem;"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#signLocalModal"
+                                                data-doc-id="@doc.Id"
+                                                data-doc-title="@doc.Title"
+                                                title="Подписать (локально)">
+                                            <i class="bi bi-pen"></i> Подписать
+                                        </button>
+                                    }
+
+                                    <!-- Отклонить -->
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-danger"
+                                            style="font-size:0.75rem;padding:0.25rem 0.55rem;border-radius:6px;"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#rejectModal"
+                                            data-doc-id="@doc.Id"
+                                            data-doc-title="@doc.Title"
+                                            title="Отклонить">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        }
+                        else
+                        {
+                            <td>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <a href="/Sign?handler=Download&amp;id=@doc.Id&amp;tab=@tabId"
+                                       class="btn btn-sm btn-outline-secondary"
+                                       style="font-size:0.75rem;padding:0.25rem 0.55rem;border-radius:6px;"
+                                       title="Скачать документ">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                    @{
+                                        var (badgeClass, badgeText, badgeIcon) = doc.UserSigningStatus switch
+                                        {
+                                            SigningStatus.SIGNED   => ("badge-signed",   "Подписан",   "bi-check-circle-fill"),
+                                            SigningStatus.DECLINED => ("badge-declined", "Отклонён",   "bi-x-circle-fill"),
+                                            SigningStatus.PENDING  => ("badge-pending",  "В обработке","bi-hourglass-split"),
+                                            _                      => ("badge-not-signed","Ожидает",    "bi-clock")
+                                        };
+                                    }
+                                    <span class="status-badge @badgeClass">
+                                        <i class="bi @badgeIcon"></i>@badgeText
+                                    </span>
+                                </div>
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (docs.TotalPages > 1)
+    {
+        <div class="pagination-bar">
+            @{
+                int prevPage = docs.PageNumber - 1;
+                int nextPage = docs.PageNumber + 1;
+            }
+            @if (docs.HasPrevious)
+            {
+                <a asp-page="/Sign"
+                   asp-route-pendingPage="@(tabId == "pending" ? prevPage : pendingPage)"
+                   asp-route-signedPage="@(tabId == "signed" ? prevPage : signedPage)"
+                   asp-route-declinedPage="@(tabId == "declined" ? prevPage : declinedPage)"
+                   asp-route-tab="@tabId"
+                   class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-chevron-left me-1"></i>Назад
+                </a>
+            }
+            else
+            {
+                <button class="btn btn-sm btn-outline-secondary" disabled>
+                    <i class="bi bi-chevron-left me-1"></i>Назад
+                </button>
+            }
+
+            @if (docs.HasNext)
+            {
+                <a asp-page="/Sign"
+                   asp-route-pendingPage="@(tabId == "pending" ? nextPage : pendingPage)"
+                   asp-route-signedPage="@(tabId == "signed" ? nextPage : signedPage)"
+                   asp-route-declinedPage="@(tabId == "declined" ? nextPage : declinedPage)"
+                   asp-route-tab="@tabId"
+                   class="btn btn-sm btn-outline-secondary">
+                    Вперёд<i class="bi bi-chevron-right ms-1"></i>
+                </a>
+            }
+            else
+            {
+                <button class="btn btn-sm btn-outline-secondary" disabled>
+                    Вперёд<i class="bi bi-chevron-right ms-1"></i>
+                </button>
+            }
+
+            <span class="page-info">
+                Страница @docs.PageNumber из @docs.TotalPages
+                · Всего: @docs.TotalCount
+            </span>
+        </div>
+    }
+}

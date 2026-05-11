@@ -298,15 +298,40 @@
             document.getElementById('btnSign').innerHTML = '<i class="bi bi-pen me-1"></i>Подписать';
         }
 
+        /// Ожидает готовности native host расширения. Без этого CreateObjectAsync может падать,
+        /// а catch ниже ошибочно показывал «плагин не установлен».
+        async function waitForCadesReady() {
+            if (window._cadesLoadFailed || typeof window.cadesplugin === 'undefined') {
+                throw new Error('CadesPluginMissing');
+            }
+            const cp = window.cadesplugin;
+            if (cp && typeof cp.then === 'function') {
+                try {
+                    await cp;
+                } catch (e) {
+                    const msg = typeof e === 'string' ? e : (e && e.message) ? e.message : String(e);
+                    throw new Error(msg || 'CadesPluginMissing');
+                }
+            }
+        }
+
+        function isLikelyPluginUnavailable(err) {
+            const raw = (err && err.message) ? err.message : String(err);
+            return raw === 'CadesPluginMissing'
+                || /недоступен|истекло время ожидания|CadesPluginMissing/i.test(raw);
+        }
+
         async function loadCertificates() {
-            if (window._cadesLoadFailed || typeof cadesplugin === 'undefined') {
+            if (window._cadesLoadFailed || typeof window.cadesplugin === 'undefined') {
                 show('pluginError');
                 hide('certsLoading');
                 return;
             }
             try {
+                await waitForCadesReady();
                 const certs = await getCertificatesFromStore();
                 hide('certsLoading');
+                hide('pluginError');
                 if (certs.length === 0) {
                     showResult('alert-warning', '<i class="bi bi-exclamation-circle me-1"></i>Сертификаты не найдены в хранилище "Личные".');
                     show('certsSection');
@@ -326,8 +351,14 @@
                 show('certsSection');
             } catch (err) {
                 hide('certsLoading');
-                show('pluginError');
                 console.error('cadesplugin error:', err);
+                if (isLikelyPluginUnavailable(err)) {
+                    show('pluginError');
+                } else {
+                    showResult('alert-danger', `<i class="bi bi-exclamation-circle-fill me-1"></i>${escapeHtml((err && err.message) ? err.message : String(err))}`);
+                    show('certsSection');
+                    document.getElementById('btnSign').disabled = true;
+                }
             }
         }
 
@@ -358,6 +389,7 @@
                 setProgress(40, 'Подписание...');
 
                 // 2. Подписываем через CryptoPro Browser Plugin
+                await waitForCadesReady();
                 const signatureBase64 = await signWithCryptoPro(docData.base64, thumbprint);
                 setProgress(75, 'Отправка подписи на сервер...');
 
@@ -442,7 +474,7 @@
 
                         const oCert = yield found.Item(1);
 
-                        const oSigner = yield cadesplugin.CreateObjectAsync('CAdESCOM.CadesSignerCOM');
+                        const oSigner = yield cadesplugin.CreateObjectAsync('CAdESCOM.CPSigner');
                         yield oSigner.propset_Certificate(oCert);
                         yield oSigner.propset_Options(
                             cadesplugin.CAPICOM_CERTIFICATE_INCLUDE_CHAIN_EXCEPT_ROOT

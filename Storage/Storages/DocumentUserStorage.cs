@@ -15,14 +15,20 @@ namespace Storage.Storages
 {
 	public class DocumentUserStorage : IDocumentUserStorage
 	{
+		private readonly StorageContext _context;
+
+		public DocumentUserStorage(StorageContext context)
+		{
+			_context = context;
+		}
+
 		public async Task<DocumentUserViewModel?> DeleteAsync(DocumentUserBindingModel model)
 		{
-			using var context = new StorageContext();
-			var element = await context.DocumentUsers.FirstOrDefaultAsync(rec => rec.Id == model.Id);
+			var element = await _context.DocumentUsers.FirstOrDefaultAsync(rec => rec.Id == model.Id);
 			if (element != null)
 			{
-				context.DocumentUsers.Remove(element);
-				await context.SaveChangesAsync();
+				_context.DocumentUsers.Remove(element);
+				await _context.SaveChangesAsync();
 				return element.GetViewModel;
 			}
 			return null;
@@ -34,8 +40,7 @@ namespace Storage.Storages
 			{
 				return null;
 			}
-			using var context = new StorageContext();
-			var element = await context.DocumentUsers
+			var element = await _context.DocumentUsers
 				.FirstOrDefaultAsync(x =>
 					(model.Id.HasValue && x.Id == model.Id) ||
 					(model.UserId.HasValue && model.DocumentId.HasValue &&
@@ -56,8 +61,7 @@ namespace Storage.Storages
 			{
 				return new();
 			}
-			using var context = new StorageContext();
-			var query = context.DocumentUsers.AsQueryable();
+			var query = _context.DocumentUsers.AsQueryable();
 			if (model.UserId.HasValue)
 			{
 				query = query.Where(x => x.UserId == model.UserId);
@@ -81,8 +85,7 @@ namespace Storage.Storages
 
 		public async Task<List<DocumentUserViewModel>> GetFullListAsync()
 		{
-			using var context = new StorageContext();
-			return await context.DocumentUsers
+			return await _context.DocumentUsers
 				.Select(x => x.GetViewModel)
 				.ToListAsync();
 		}
@@ -94,8 +97,7 @@ namespace Storage.Storages
 				return new();
 			}
 			var skip = (model.PageNumber.Value - 1) * model.PageSize.Value;
-			using var context = new StorageContext();
-			return await context.DocumentUsers
+			return await _context.DocumentUsers
 				.OrderBy(x => x.Id)
 				.Skip(skip)
 				.Take(model.PageSize.Value)
@@ -110,31 +112,27 @@ namespace Storage.Storages
 			{
 				return null;
 			}
-			using var context = new StorageContext();
-			await context.DocumentUsers.AddAsync(newDocumentUser);
-			await context.SaveChangesAsync();
+			await _context.DocumentUsers.AddAsync(newDocumentUser);
+			await _context.SaveChangesAsync();
 			return newDocumentUser.GetViewModel;
 		}
 
 		public async Task<DocumentUserViewModel?> UpdateAsync(DocumentUserBindingModel model)
 		{
-			using var context = new StorageContext();
-			var documentUser = await context.DocumentUsers.FirstOrDefaultAsync(x => x.Id == model.Id);
+			var documentUser = await _context.DocumentUsers.FirstOrDefaultAsync(x => x.Id == model.Id);
 			if (documentUser == null)
 			{
 				return null;
 			}
 			documentUser.Update(model);
-			await context.SaveChangesAsync();
-			await UpdateDocumentStatusAsync(context, documentUser.DocumentId);
+			await _context.SaveChangesAsync();
+			await UpdateDocumentStatusAsync(_context, documentUser.DocumentId);
 			return documentUser.GetViewModel;
 		}
 		public async Task<(List<DocumentForSignViewModel> Items, int TotalCount)> GetPagedForSignAsync(
 			int userId, SigningStatus? signingStatus, int pageNumber, int pageSize)
 		{
-			using var context = new StorageContext();
-
-			var query = context.DocumentUsers
+			var query = _context.DocumentUsers
 				.Include(du => du.Document)
 				.Where(du => du.UserId == userId && !du.Document.IsDeleted);
 
@@ -151,7 +149,7 @@ namespace Storage.Storages
 				query = query.Where(du =>
 					!du.Document.IsSequential ||
 					du.Order <= 1 ||
-					!context.DocumentUsers.Any(prev =>
+					!_context.DocumentUsers.Any(prev =>
 						prev.DocumentId == du.DocumentId &&
 						prev.Order < du.Order &&
 						prev.SigningStatus != SigningStatus.SIGNED));
@@ -183,10 +181,9 @@ namespace Storage.Storages
 
 		public async Task<int> CountPendingSigningAssignmentsAsync(int userId)
 		{
-			using var context = new StorageContext();
 			return await (
-				from du in context.DocumentUsers
-				join d in context.Documents on du.DocumentId equals d.Id
+				from du in _context.DocumentUsers
+				join d in _context.Documents on du.DocumentId equals d.Id
 				where du.UserId == userId
 					&& !d.IsDeleted
 					&& (du.SigningStatus == SigningStatus.NOT_SIGNED

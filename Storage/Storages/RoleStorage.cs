@@ -14,14 +14,20 @@ namespace Storage.Storages
 {
 	public class RoleStorage : IRoleStorage
 	{
+		private readonly StorageContext _context;
+
+		public RoleStorage(StorageContext context)
+		{
+			_context = context;
+		}
+
 		public async Task<RoleViewModel?> DeleteAsync(RoleBindingModel model)
 		{
-			using var context = new StorageContext();
-			var element = await context.Roles.FirstOrDefaultAsync(rec => rec.Id == model.Id);
+			var element = await _context.Roles.FirstOrDefaultAsync(rec => rec.Id == model.Id);
 			if (element != null)
 			{
-				context.Roles.Remove(element);
-				await context.SaveChangesAsync();
+				_context.Roles.Remove(element);
+				await _context.SaveChangesAsync();
 				return element.GetViewModel;
 			}
 			return null;
@@ -33,8 +39,7 @@ namespace Storage.Storages
 			{
 				return null;
 			}
-			using var context = new StorageContext();
-			var element = await context.Roles
+			var element = await _context.Roles
 				.FirstOrDefaultAsync(x =>
 					(!string.IsNullOrEmpty(model.Name) && x.Name == model.Name) ||
 					(model.Id.HasValue && x.Id == model.Id));
@@ -51,8 +56,7 @@ namespace Storage.Storages
 			{
 				return new();
 			}
-			using var context = new StorageContext();
-			return await context.Roles
+			return await _context.Roles
 				.Where(x => x.Name.Contains(model.Name))
 				.Select(x => x.GetViewModel)
 				.ToListAsync();
@@ -64,8 +68,7 @@ namespace Storage.Storages
 			{
 				return new();
 			}
-			using var context = new StorageContext();
-			return await context.Roles
+			return await _context.Roles
 				.Where(x => x.Name.Contains(model.Name))
 				.Select(x => x.GetViewModel)
 				.ToListAsync();
@@ -73,8 +76,7 @@ namespace Storage.Storages
 
 		public async Task<List<RoleViewModel>> GetFullListAsync()
 		{
-			using var context = new StorageContext();
-			return await context.Roles
+			return await _context.Roles
 				.Select(x => x.GetViewModel)
 				.ToListAsync();
 		}
@@ -86,8 +88,7 @@ namespace Storage.Storages
 				return new();
 			}
 			var skip = (model.PageNumber.Value - 1) * model.PageSize.Value;
-			using var context = new StorageContext();
-			return await context.Roles
+			return await _context.Roles
 				.OrderBy(x => x.Id)
 				.Skip(skip)
 				.Take(model.PageSize.Value)
@@ -102,24 +103,21 @@ namespace Storage.Storages
 			{
 				return null;
 			}
-			using var context = new StorageContext();
-			await context.Roles.AddAsync(newRole);
-			await context.SaveChangesAsync();
+			await _context.Roles.AddAsync(newRole);
+			await _context.SaveChangesAsync();
 			return newRole.GetViewModel;
 		}
 
 		public async Task<RoleViewModel?> UpdateAsync(RoleBindingModel model)
 		{
-			using var context = new StorageContext();
-			var role = await context.Roles.FirstOrDefaultAsync(x => x.Id == model.Id);
+			var role = await _context.Roles.FirstOrDefaultAsync(x => x.Id == model.Id);
 			if (role == null)
 			{
 				return null;
 			}
 			role.Update(model);
-			await context.SaveChangesAsync();
+			await _context.SaveChangesAsync();
 			return role.GetViewModel;
 		}
 	}
 }
-

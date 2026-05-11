@@ -1,104 +1,111 @@
 using Contracts.BindingModels.Authentication;
-using Contracts.SearchModels;
-using Contracts.StorageContracts;
 using MailKit.Security;
 using MassTransit;
 using MessageContracts;
 using Microsoft.Extensions.Options;
 using MimeKit;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace NotificationService.Consumers
 {
-	/// <summary>
-	/// Обеспечивает отправку уведомлений на почту
-	/// </summary>
 	public class NotificationConsumer : IConsumer<NotificationMessage>
 	{
 		private readonly ILogger<NotificationConsumer> _logger;
-		private readonly IUserStorage _userStorage;
 		private readonly EmailSettings _emailSettings;
 
 		public NotificationConsumer(
-			ILogger<NotificationConsumer> logger, 
-			IUserStorage userStorage,
+			ILogger<NotificationConsumer> logger,
 			IOptions<EmailSettings> emailSettings)
 		{
-			_emailSettings = emailSettings.Value;
 			_logger = logger;
-			_userStorage = userStorage;
+			_emailSettings = emailSettings.Value;
 		}
+
 		public async Task Consume(ConsumeContext<NotificationMessage> context)
 		{
-			var message = context.Message;
+			var notification = context.Message;
+
 			_logger.LogInformation(
-				"Получен запрос на отправку письма: UserId={UserId}, Title={Title}",
-				message.UserId, message.Title);
+				"Получено уведомление для отправки: RecipientEmail={RecipientEmail}, RecipientName={RecipientName}, DocumentTitle={DocumentTitle}, RequestedByName={RequestedByName}, RequestedAt={RequestedAt:O}",
+				notification.RecipientEmail,
+				notification.RecipientName,
+				notification.DocumentTitle,
+				notification.RequestedByName,
+				notification.RequestedAt);
+
 			try
 			{
-				var user = await _userStorage.GetElementAsync(new UserSearchModel {
-					Id = message.UserId });
-
-				if (user == null)
-				{
-					_logger.LogWarning("Пользователь {UserId} не найден или удалён", message.UserId);
-					return;
-				}
-				var email = user.Email;
-
 				_logger.LogInformation(
-				"Попытка отправки письма-уведомления: Email={email} относительно документа Title={Title}",
-				email, message.Title);
+					"Отправка email-уведомления: RecipientEmail={RecipientEmail}, DocumentTitle={DocumentTitle}",
+					notification.RecipientEmail,
+					notification.DocumentTitle);
 
-				await SendNotificationMessage(email, message.Title);
+				var sent = await SendNotificationMessage(notification);
+				if (!sent)
+				{
+					_logger.LogWarning(
+						"Email-уведомление не было отправлено: RecipientEmail={RecipientEmail}, DocumentTitle={DocumentTitle}",
+						notification.RecipientEmail,
+						notification.DocumentTitle);
+				}
 			}
-			catch (Exception ex) {
-				_logger.LogError(ex,
-					"Ошибка при отправке письма-уведомления: UserId={UserId} относительно документа Title={Title}",
-					message.UserId, message.Title);
+			catch (Exception ex)
+			{
+				_logger.LogError(
+					ex,
+					"Ошибка при обработке email-уведомления: RecipientEmail={RecipientEmail}, DocumentTitle={DocumentTitle}",
+					notification.RecipientEmail,
+					notification.DocumentTitle);
+				throw;
 			}
 		}
 
-		public async Task<bool> SendNotificationMessage(string email, string title)
+		public async Task<bool> SendNotificationMessage(NotificationMessage notification)
 		{
 			try
 			{
 				var message = new MimeMessage();
 				message.From.Add(new MailboxAddress(_emailSettings.SenderName, _emailSettings.MailLogin));
-				message.To.Add(new MailboxAddress("", email));
+				message.To.Add(new MailboxAddress(notification.RecipientName, notification.RecipientEmail));
+				message.Subject = "Вам пришел новый документ на подпись";
 
-				message.Subject = "Вам пришли новые документы на подпись";
-
-				var bodyBuilder = new BodyBuilder();
-
-				bodyBuilder.TextBody = "Добрый день\n\n" +
-										$"Документ |{title}| доступен для подписания в личном кабинете.";
-
-
+				var bodyBuilder = new BodyBuilder
+				{
+					TextBody =
+						$"Добрый день, {notification.RecipientName}.\n\n" +
+						$"Документ \"{notification.DocumentTitle}\" доступен для подписания в личном кабинете.\n" +
+						$"Инициатор: {notification.RequestedByName}.\n" +
+						$"Дата запроса: {notification.RequestedAt:dd.MM.yyyy HH:mm}."
+				};
 				message.Body = bodyBuilder.ToMessageBody();
 
 				using var client = new MailKit.Net.Smtp.SmtpClient();
 				var socketOptions = _emailSettings.SmtpClientPort == 465
 					? SecureSocketOptions.SslOnConnect
 					: SecureSocketOptions.StartTls;
-				await client.ConnectAsync(_emailSettings.SmtpClientHost,
-										  _emailSettings.SmtpClientPort,
-										  socketOptions);
-				await client.AuthenticateAsync(_emailSettings.MailLogin,
-											   _emailSettings.MailPassword);
+
+				await client.ConnectAsync(
+					_emailSettings.SmtpClientHost,
+					_emailSettings.SmtpClientPort,
+					socketOptions);
+				await client.AuthenticateAsync(
+					_emailSettings.MailLogin,
+					_emailSettings.MailPassword);
 				await client.SendAsync(message);
 				await client.DisconnectAsync(true);
 
-				_logger.LogInformation($"Email sent to {email}");
+				_logger.LogInformation(
+					"Email-уведомление отправлено: RecipientEmail={RecipientEmail}, DocumentTitle={DocumentTitle}",
+					notification.RecipientEmail,
+					notification.DocumentTitle);
 				return true;
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Ошибка отправки письма на {Email}", email);
+				_logger.LogError(
+					ex,
+					"Ошибка отправки email-уведомления: RecipientEmail={RecipientEmail}, DocumentTitle={DocumentTitle}",
+					notification.RecipientEmail,
+					notification.DocumentTitle);
 				return false;
 			}
 		}

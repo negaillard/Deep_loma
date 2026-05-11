@@ -122,15 +122,25 @@
                                             data-doc-title="@doc.Title"
                                             data-doc-description="@doc.Description"
                                             data-doc-status="@ArchiveModel.StatusLabel(doc.Status)"
+                                            data-doc-status-code="@((int)doc.Status)"
                                             data-doc-status-class="@ArchiveModel.StatusBadgeClass(doc.Status)"
                                             data-doc-status-icon="@ArchiveModel.StatusIcon(doc.Status)"
                                             data-doc-date="@doc.CreatedAt.ToString("dd.MM.yyyy HH:mm")">
                                         <i class="bi bi-eye"></i>
                                     </button>
+                                    @if (doc.Status == DocumentStatus.SIGNED)
+                                    {
+                                        <a href="?handler=VerificationPackage&id=@doc.Id"
+                                           class="btn btn-sm"
+                                           style="color:#7c3aed; background:none; border:none; padding:0.2rem 0.4rem;"
+                                           title="Пакет верификации (ZIP)" target="_blank">
+                                            <i class="bi bi-file-earmark-zip"></i>
+                                        </a>
+                                    }
                                     <a href="?handler=Download&id=@doc.Id"
                                        class="btn btn-sm"
                                        style="color:#059669; background:none; border:none; padding:0.2rem 0.4rem;"
-                                       title="Скачать" target="_blank">
+                                       title="Скачать файл" target="_blank">
                                         <i class="bi bi-download"></i>
                                     </a>
                                 </div>
@@ -229,15 +239,21 @@
                     </div>
                 </div>
             </div>
-            <div class="modal-footer" style="border-top:1px solid #f3f4f6; padding:1rem 1.5rem;">
+            <div class="modal-footer d-flex flex-wrap gap-2 justify-content-end" style="border-top:1px solid #f3f4f6; padding:1rem 1.5rem;">
                 <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal"
                         style="font-size:0.85rem;border-radius:7px;padding:0.45rem 1rem;">
                     Закрыть
                 </button>
+                <a id="archiveDetailVerification" href="#" target="_blank"
+                   class="btn btn-sm btn-outline-primary d-none"
+                   style="font-size:0.85rem;border-radius:7px;padding:0.45rem 1rem;"
+                   title="ZIP: документ, подписи и README для проверки">
+                    <i class="bi bi-file-earmark-zip me-1"></i>Пакет верификации
+                </a>
                 <a id="archiveDetailDownload" href="#" target="_blank"
                    class="btn btn-sm btn-primary"
                    style="font-size:0.85rem;border-radius:7px;padding:0.45rem 1rem;">
-                    <i class="bi bi-download me-1"></i>Скачать
+                    <i class="bi bi-download me-1"></i>Скачать файл
                 </a>
             </div>
         </div>
@@ -246,20 +262,32 @@
 
 @section Scripts {
 <script>
+    const signedStatusCode = @((int)DocumentStatus.SIGNED);
     const archiveDetailModal = document.getElementById('archiveDetailModal');
     archiveDetailModal.addEventListener('show.bs.modal', async function (event) {
         const btn = event.relatedTarget;
+        if (!btn || !btn.dataset?.docId) return;
         const id          = btn.dataset.docId;
         const title       = btn.dataset.docTitle;
         const description = btn.dataset.docDescription;
         const status      = btn.dataset.docStatus;
         const statusClass = btn.dataset.docStatusClass;
         const statusIcon  = btn.dataset.docStatusIcon;
-        const date        = btn.dataset.docDate;
+        const date          = btn.dataset.docDate;
+        const statusCode    = parseInt(btn.dataset.docStatusCode, 10);
 
         document.getElementById('archiveDetailTitle').textContent = title;
         document.getElementById('archiveDetailDate').textContent  = date;
         document.getElementById('archiveDetailDownload').href      = `?handler=Download&id=${id}`;
+
+        const verifBtn = document.getElementById('archiveDetailVerification');
+        if (statusCode === signedStatusCode) {
+            verifBtn.classList.remove('d-none');
+            verifBtn.href = `?handler=VerificationPackage&id=${id}`;
+        } else {
+            verifBtn.classList.add('d-none');
+            verifBtn.removeAttribute('href');
+        }
 
         const statusEl = document.getElementById('archiveDetailStatus');
         statusEl.className = `status-badge ${statusClass}`;

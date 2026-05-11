@@ -1,0 +1,334 @@
+@page
+@model DemoApp.Pages.Documents.ArchiveModel
+@using Models
+@{
+    ViewData["Title"] = "Архив документов";
+}
+
+<div class="card">
+    <div class="card-header d-flex align-items-center gap-3 flex-wrap">
+        <span><i class="bi bi-archive me-2"></i>Завершённые документы</span>
+
+        <!-- Search -->
+        <form method="get" class="d-flex gap-2 ms-auto">
+            <input type="hidden" name="statusFilter" value="@Model.StatusFilter" />
+            <input type="hidden" name="p" value="1" />
+            <input type="hidden" name="pageSize" value="@Model.PageSize" />
+            <div class="input-group input-group-sm" style="max-width: 260px;">
+                <input type="text" name="search" value="@Model.SearchTerm"
+                       class="form-control" placeholder="Поиск по названию..." />
+                <button type="submit" class="btn btn-outline-secondary">
+                    <i class="bi bi-search"></i>
+                </button>
+                @if (!string.IsNullOrEmpty(Model.SearchTerm))
+                {
+                    <a asp-page="/Documents/Archive" asp-route-statusFilter="@Model.StatusFilter"
+                       class="btn btn-outline-danger" title="Очистить">
+                        <i class="bi bi-x"></i>
+                    </a>
+                }
+            </div>
+        </form>
+
+        <!-- Status filter tabs -->
+        <div class="d-flex gap-1 flex-wrap">
+            <a href="/Documents/Archive@(!string.IsNullOrEmpty(Model.SearchTerm) ? $"?search={Uri.EscapeDataString(Model.SearchTerm)}&pageSize={Model.PageSize}" : $"?pageSize={Model.PageSize}")"
+               class="btn btn-sm @(string.IsNullOrEmpty(Model.StatusFilter) ? "btn-primary" : "btn-outline-secondary")"
+               style="font-size:0.75rem; padding:0.2rem 0.6rem; border-radius:20px;">
+                Все
+            </a>
+            <a href="/Documents/Archive?statusFilter=SIGNED@(!string.IsNullOrEmpty(Model.SearchTerm) ? $"&search={Uri.EscapeDataString(Model.SearchTerm)}" : "")&pageSize=@Model.PageSize"
+               class="btn btn-sm @(Model.StatusFilter == "SIGNED" ? "" : "btn-outline-secondary")"
+               style="font-size:0.75rem; padding:0.2rem 0.6rem; border-radius:20px; @(Model.StatusFilter == "SIGNED" ? "background:#d1fae5; color:#065f46; border-color:#a7f3d0;" : "")">
+                Подписанные
+            </a>
+            <a href="/Documents/Archive?statusFilter=DECLINED@(!string.IsNullOrEmpty(Model.SearchTerm) ? $"&search={Uri.EscapeDataString(Model.SearchTerm)}" : "")&pageSize=@Model.PageSize"
+               class="btn btn-sm @(Model.StatusFilter == "DECLINED" ? "btn-danger" : "btn-outline-secondary")"
+               style="font-size:0.75rem; padding:0.2rem 0.6rem; border-radius:20px;">
+                Отклонённые
+            </a>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.SearchTerm))
+    {
+        <div class="px-3 py-2" style="background:#f0f7ff; border-bottom:1px solid #e8ecf0;">
+            <small style="color:#1e40af;">
+                <i class="bi bi-search me-1"></i>
+                Результаты поиска по: <strong>«@Model.SearchTerm»</strong>
+                — найдено: @Model.TotalCount
+            </small>
+        </div>
+    }
+
+    @if (Model.Documents.Count == 0)
+    {
+        <div class="card-body text-center py-5">
+            <i class="bi bi-archive" style="font-size: 2.5rem; color: #d1d5db;"></i>
+            <p class="mt-2 mb-0" style="color: #9ca3af; font-size: 0.875rem;">
+                @(string.IsNullOrEmpty(Model.SearchTerm) ? "Архив пуст" : "Ничего не найдено")
+            </p>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th style="width:40px;">#</th>
+                        <th>Документ</th>
+                        <th>Статус</th>
+                        <th>Дата завершения</th>
+                        <th style="width:60px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var doc in Model.Documents)
+                    {
+                        <tr>
+                            <td>
+                                <span style="font-size:0.78rem; color:#9ca3af; font-family:monospace;">
+                                    @doc.Id
+                                </span>
+                            </td>
+                            <td>
+                                <div style="font-weight:500; color:#111827;">@doc.Title</div>
+                                @if (!string.IsNullOrEmpty(doc.Description))
+                                {
+                                    <div style="font-size:0.78rem; color:#9ca3af; margin-top:0.1rem;">
+                                        @(doc.Description.Length > 70 ? doc.Description[..70] + "…" : doc.Description)
+                                    </div>
+                                }
+                            </td>
+                            <td>
+                                <span class="status-badge @ArchiveModel.StatusBadgeClass(doc.Status)">
+                                    <i class="bi @ArchiveModel.StatusIcon(doc.Status)"></i>
+                                    @ArchiveModel.StatusLabel(doc.Status)
+                                </span>
+                            </td>
+                            <td style="font-size:0.82rem; color:#6b7280;">
+                                @doc.CreatedAt.ToString("dd.MM.yyyy HH:mm")
+                            </td>
+                            <td>
+                                <div class="d-flex gap-1">
+                                    <button type="button"
+                                            class="btn btn-sm"
+                                            style="color:#4f8ef7; background:none; border:none; padding:0.2rem 0.4rem;"
+                                            title="Подробнее"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#archiveDetailModal"
+                                            data-doc-id="@doc.Id"
+                                            data-doc-title="@doc.Title"
+                                            data-doc-description="@doc.Description"
+                                            data-doc-status="@ArchiveModel.StatusLabel(doc.Status)"
+                                            data-doc-status-code="@((int)doc.Status)"
+                                            data-doc-status-class="@ArchiveModel.StatusBadgeClass(doc.Status)"
+                                            data-doc-status-icon="@ArchiveModel.StatusIcon(doc.Status)"
+                                            data-doc-date="@doc.CreatedAt.ToString("dd.MM.yyyy HH:mm")">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                    @if (doc.Status == DocumentStatus.SIGNED)
+                                    {
+                                        <a href="?handler=VerificationPackage&id=@doc.Id"
+                                           class="btn btn-sm"
+                                           style="color:#7c3aed; background:none; border:none; padding:0.2rem 0.4rem;"
+                                           title="Пакет верификации (ZIP)" target="_blank">
+                                            <i class="bi bi-file-earmark-zip"></i>
+                                        </a>
+                                    }
+                                    <a href="?handler=Download&id=@doc.Id"
+                                       class="btn btn-sm"
+                                       style="color:#059669; background:none; border:none; padding:0.2rem 0.4rem;"
+                                       title="Скачать файл" target="_blank">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-3 py-2 px-1">
+            <span style="font-size:0.82rem; color:#6b7280;">
+                <i class="bi bi-archive me-1"></i>
+                Всего: <strong>@Model.TotalCount</strong>
+                @if (Model.TotalPages > 1)
+                {
+                    <span class="text-muted">· стр. @Model.PageNumber из @Model.TotalPages</span>
+                }
+            </span>
+            @if (Model.TotalPages > 1)
+            {
+                <nav aria-label="Страницы архива">
+                    <ul class="pagination pagination-sm mb-0">
+                        <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : null)">
+                            <a class="page-link"
+                               asp-page="/Documents/Archive"
+                               asp-route-statusFilter="@Model.StatusFilter"
+                               asp-route-search="@Model.SearchTerm"
+                               asp-route-p="@(Model.PageNumber - 1)"
+                               asp-route-pageSize="@Model.PageSize">Назад</a>
+                        </li>
+                        @{
+                            var from = Math.Max(1, Model.PageNumber - 2);
+                            var to = Math.Min(Model.TotalPages, Model.PageNumber + 2);
+                            for (var p = from; p <= to; p++)
+                            {
+                                var active = p == Model.PageNumber;
+                                <li class="page-item @(active ? "active" : null)">
+                                    <a class="page-link"
+                                       asp-page="/Documents/Archive"
+                                       asp-route-statusFilter="@Model.StatusFilter"
+                                       asp-route-search="@Model.SearchTerm"
+                                       asp-route-p="@p"
+                                       asp-route-pageSize="@Model.PageSize">@p</a>
+                                </li>
+                            }
+                        }
+                        <li class="page-item @(Model.PageNumber >= Model.TotalPages ? "disabled" : null)">
+                            <a class="page-link"
+                               asp-page="/Documents/Archive"
+                               asp-route-statusFilter="@Model.StatusFilter"
+                               asp-route-search="@Model.SearchTerm"
+                               asp-route-p="@(Model.PageNumber + 1)"
+                               asp-route-pageSize="@Model.PageSize">Вперёд</a>
+                        </li>
+                    </ul>
+                </nav>
+            }
+        </div>
+    }
+</div>
+
+<!-- Archive document detail modal -->
+<div class="modal fade" id="archiveDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:500px;">
+        <div class="modal-content" style="border-radius:12px; border:none; box-shadow:0 20px 60px rgba(0,0,0,0.18);">
+            <div class="modal-header" style="border-bottom:1px solid #f3f4f6; padding:1.25rem 1.5rem 1rem;">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width:40px;height:40px;background:#eff6ff;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <i class="bi bi-file-earmark-check" style="color:#4f8ef7;font-size:1.1rem;"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title mb-0" id="archiveDetailTitle"
+                            style="font-size:0.95rem;font-weight:700;color:#111827;"></h5>
+                        <p class="mb-0" style="font-size:0.78rem;color:#9ca3af;" id="archiveDetailDate"></p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:1.25rem 1.5rem;">
+                <div class="mb-3">
+                    <div style="font-size:0.78rem;font-weight:600;color:#6b7280;margin-bottom:0.35rem;">СТАТУС</div>
+                    <span id="archiveDetailStatus" class="status-badge"></span>
+                </div>
+                <div id="archiveDetailDescBlock" class="mb-3">
+                    <div style="font-size:0.78rem;font-weight:600;color:#6b7280;margin-bottom:0.35rem;">ОПИСАНИЕ</div>
+                    <p id="archiveDetailDescription" style="font-size:0.875rem;color:#374151;margin:0;"></p>
+                </div>
+                <div>
+                    <div style="font-size:0.78rem;font-weight:600;color:#6b7280;margin-bottom:0.5rem;">ПОДПИСАНТЫ</div>
+                    <div id="archiveDetailSigners" style="font-size:0.85rem;color:#374151;">
+                        <div class="d-flex align-items-center gap-2" style="color:#9ca3af;">
+                            <div class="spinner-border spinner-border-sm"></div>
+                            Загрузка...
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer d-flex flex-wrap gap-2 justify-content-end" style="border-top:1px solid #f3f4f6; padding:1rem 1.5rem;">
+                <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal"
+                        style="font-size:0.85rem;border-radius:7px;padding:0.45rem 1rem;">
+                    Закрыть
+                </button>
+                <a id="archiveDetailVerification" href="#" target="_blank"
+                   class="btn btn-sm btn-outline-primary d-none"
+                   style="font-size:0.85rem;border-radius:7px;padding:0.45rem 1rem;"
+                   title="ZIP: документ, подписи и README для проверки">
+                    <i class="bi bi-file-earmark-zip me-1"></i>Пакет верификации
+                </a>
+                <a id="archiveDetailDownload" href="#" target="_blank"
+                   class="btn btn-sm btn-primary"
+                   style="font-size:0.85rem;border-radius:7px;padding:0.45rem 1rem;">
+                    <i class="bi bi-download me-1"></i>Скачать файл
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const signedStatusCode = @((int)DocumentStatus.SIGNED);
+    const archiveDetailModal = document.getElementById('archiveDetailModal');
+    archiveDetailModal.addEventListener('show.bs.modal', async function (event) {
+        const btn = event.relatedTarget;
+        if (!btn || !btn.dataset?.docId) return;
+        const id          = btn.dataset.docId;
+        const title       = btn.dataset.docTitle;
+        const description = btn.dataset.docDescription;
+        const status      = btn.dataset.docStatus;
+        const statusClass = btn.dataset.docStatusClass;
+        const statusIcon  = btn.dataset.docStatusIcon;
+        const date          = btn.dataset.docDate;
+        const statusCode    = parseInt(btn.dataset.docStatusCode, 10);
+
+        document.getElementById('archiveDetailTitle').textContent = title;
+        document.getElementById('archiveDetailDate').textContent  = date;
+        document.getElementById('archiveDetailDownload').href      = `?handler=Download&id=${id}`;
+
+        const verifBtn = document.getElementById('archiveDetailVerification');
+        if (statusCode === signedStatusCode) {
+            verifBtn.classList.remove('d-none');
+            verifBtn.href = `?handler=VerificationPackage&id=${id}`;
+        } else {
+            verifBtn.classList.add('d-none');
+            verifBtn.removeAttribute('href');
+        }
+
+        const statusEl = document.getElementById('archiveDetailStatus');
+        statusEl.className = `status-badge ${statusClass}`;
+        statusEl.innerHTML = `<i class="bi ${statusIcon}"></i>${status}`;
+
+        const descBlock = document.getElementById('archiveDetailDescBlock');
+        if (description) {
+            document.getElementById('archiveDetailDescription').textContent = description;
+            descBlock.style.display = 'block';
+        } else {
+            descBlock.style.display = 'none';
+        }
+
+        const signersEl = document.getElementById('archiveDetailSigners');
+        signersEl.innerHTML = '<div class="d-flex align-items-center gap-2" style="color:#9ca3af;"><div class="spinner-border spinner-border-sm"></div> Загрузка...</div>';
+
+        try {
+            const resp = await fetch(`?handler=Signers&id=${id}`, {
+                headers: { 'Accept': 'application/json' }
+            });
+            if (resp.ok) {
+                const signers = await resp.json();
+                if (signers.length === 0) {
+                    signersEl.innerHTML = '<span style="color:#9ca3af;font-size:0.82rem;">Нет подписантов</span>';
+                } else {
+                    signersEl.innerHTML = signers.map(s => {
+                        const sc = s.signingStatus === 1 ? 'signed' : s.signingStatus === 2 ? 'declined' : 'not-signed';
+                        const si = s.signingStatus === 1 ? 'bi-check-circle' : s.signingStatus === 2 ? 'bi-x-circle' : 'bi-hourglass-split';
+                        const sl = s.signingStatus === 1 ? 'Подписал' : s.signingStatus === 2 ? 'Отклонил' : 'Ожидает';
+                        return `<div class="d-flex align-items-center justify-content-between py-1" style="border-bottom:1px solid #f3f4f6;">
+                            <span style="font-size:0.85rem; color:#374151;"><i class="bi bi-person-fill me-1" style="color:#9ca3af;"></i>${s.userFullname ?? ('Пользователь #' + s.userId)}</span>
+                            <span class="status-badge ${sc}" style="font-size:0.72rem;"><i class="bi ${si}"></i>${sl}</span>
+                        </div>`;
+                    }).join('');
+                }
+            } else {
+                signersEl.innerHTML = '<span style="color:#9ca3af;font-size:0.82rem;">Не удалось загрузить</span>';
+            }
+        } catch {
+            signersEl.innerHTML = '<span style="color:#9ca3af;font-size:0.82rem;">Не удалось загрузить</span>';
+        }
+    });
+</script>
+}

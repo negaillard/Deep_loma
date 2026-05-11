@@ -2,6 +2,7 @@ using DocumentApp.Services;
 using Contracts.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Models;
 
@@ -18,7 +19,15 @@ public class IndexModel : PageModel
     }
 
     public List<DocumentViewModel> Documents { get; set; } = [];
+
+    /// <summary>
+    /// Без <see cref="BindNever"/> query <c>pageSize</c> может привязаться к этому свойству
+    /// (совпадение с <c>PageSize</c> без учёта регистра), а параметр обработчика <c>pageSize</c> останется со значением по умолчанию.
+    /// </summary>
+    [BindNever]
     public int PageNumber { get; set; } = 1;
+
+    [BindNever]
     public int PageSize { get; set; } = 20;
     public int TotalCount { get; set; }
     public int TotalPages { get; set; }
@@ -69,8 +78,10 @@ public class IndexModel : PageModel
         _ => "bi-file-earmark"
     };
 
-    /// <param name="p"></param>
-    public async Task<IActionResult> OnGetAsync(string? statusFilter = null, int p = 1, int pageSize = 10)
+    public async Task<IActionResult> OnGetAsync(
+        [FromQuery] string? statusFilter = null,
+        [FromQuery] int p = 1,
+        [FromQuery] int pageSize = 20)
     {
         if (p < 1) p = 1;
         if (pageSize is < 1 or > 100) pageSize = 20;
@@ -200,7 +211,7 @@ public class IndexModel : PageModel
         }
 
         var paged = await _apiClient.GetDocumentsFilteredPaged(statuses, single, null, p, pageSize);
-        Documents = paged.Items;
+        Documents = paged.Items ?? [];
         TotalCount = paged.TotalCount;
         TotalPages = paged.TotalPages > 0 ? paged.TotalPages : 1;
     }

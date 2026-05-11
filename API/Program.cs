@@ -10,10 +10,12 @@ using Contracts.StorageContracts;
 using FileStorage;
 using Logic;
 using MassTransit;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.OpenApi.Models;
 using Models;
+using Storage;
 using Storage.Storages;
 
 AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
@@ -87,6 +89,13 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ICodeVerificationLogic, CodeVerificationLogic>();
 builder.Services.AddScoped<ISessionService, SessionService>();
 
+var storageConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+	?? builder.Configuration.GetConnectionString("Storage")
+	?? throw new InvalidOperationException("Connection string 'DefaultConnection' or 'Storage' is not configured.");
+
+builder.Services.AddDbContext<StorageContext>(options =>
+	options.UseSqlServer(storageConnectionString));
+
 /// регистрация сервисов
 builder.Services.AddScoped<IUserLogic, UserLogic>();
 builder.Services.AddScoped<IRoleLogic, RoleLogic>();
@@ -123,8 +132,11 @@ builder.Services.AddMassTransit(x =>
 	});
 });
 
-/// Получаем режим приложения
-var certificateMode = builder.Configuration.GetValue<CertificateMode>("AppMode");
+/// Режим подписи: Internal (сервер) / Local (клиент). AppMode в приоритете, иначе CertificateMode.
+var appModeSection = builder.Configuration["AppMode"] ?? builder.Configuration["CertificateMode"];
+var certificateMode = Enum.TryParse<CertificateMode>(appModeSection, true, out var parsedMode)
+	? parsedMode
+	: CertificateMode.Internal;
 
 if (certificateMode == CertificateMode.Internal)
 {
@@ -133,6 +145,10 @@ if (certificateMode == CertificateMode.Internal)
 		builder.Services.AddScoped<ICertificateGeneratorLogic, SelfSignedCertificateGeneratorGost>();
 	else
 		builder.Services.AddScoped<ICertificateGeneratorLogic, SelfSignedCertificateGenerator>();
+}
+else
+{
+	builder.Services.AddScoped<ICertificateGeneratorLogic, LocalModeCertificateGeneratorStub>();
 }
 
 builder.Services.AddControllers();
@@ -167,7 +183,9 @@ app.UseExceptionHandler(errorApp =>
 	});
 });
 
-app.UseHttpsRedirection();
+// Редирект HTTP→HTTPS: в Docker без TLS на Kestrel ломает клиентов. Отключение: DisableHttpsRedirection=true (env или конфиг).
+if (!builder.Configuration.GetValue("DisableHttpsRedirection", false))
+	app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -178,4 +196,3 @@ app.MapControllers();
 await app.SeedInitialAdminAsync();
 
 app.Run();
-

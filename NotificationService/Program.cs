@@ -1,12 +1,9 @@
 using Contracts.BindingModels.Authentication;
-using Contracts.StorageContracts;
 using MassTransit;
 using NotificationService.Consumers;
-using Storage.Storages;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-builder.Services.AddScoped<IUserStorage, UserStorage>();
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 
 builder.Services.AddMassTransit(x =>
@@ -26,4 +23,6 @@ builder.Services.AddMassTransit(x =>
 });
 
 var host = builder.Build();
+
+
 host.Run();

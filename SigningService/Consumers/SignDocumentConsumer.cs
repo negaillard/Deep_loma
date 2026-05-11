@@ -2,10 +2,12 @@ using Contracts.BindingModels;
 using Contracts.LogicContracts;
 using Contracts.SearchModels;
 using Contracts.StorageContracts;
+using Logic;
 using MassTransit;
 using MessageContracts;
 using Microsoft.Extensions.Logging;
 using Models;
+using System.Security.Cryptography.Pkcs;
 
 namespace SigningService.Consumers
 {
@@ -20,6 +22,7 @@ namespace SigningService.Consumers
 		private readonly ICertificateStorage _certificateStorage;
 		private readonly IDocumentUserStorage _documentUserStorage;
 		private readonly ISignatureStorage _signatureStorage;
+		private readonly IUserStorage _userStorage;
 		private readonly IFileStorage _fileStorage;
 		private readonly IDocumentSigner _documentSigner;
 		private readonly IPublishEndpoint _publishEndpoint;
@@ -30,6 +33,7 @@ namespace SigningService.Consumers
 			ICertificateStorage certificateStorage,
 			IDocumentUserStorage documentUserStorage,
 			ISignatureStorage signatureStorage,
+			IUserStorage userStorage,
 			IFileStorage fileStorage,
 			IDocumentSigner documentSigner,
 			IPublishEndpoint publishEndpoint,
@@ -39,6 +43,7 @@ namespace SigningService.Consumers
 			_certificateStorage = certificateStorage;
 			_documentUserStorage = documentUserStorage;
 			_signatureStorage = signatureStorage;
+			_userStorage = userStorage;
 			_fileStorage = fileStorage;
 			_documentSigner = documentSigner;
 			_publishEndpoint = publishEndpoint;
@@ -147,17 +152,36 @@ namespace SigningService.Consumers
 					var allSigners = await _documentUserStorage.GetFilteredListAsync(
 						new DocumentUserSearchModel { DocumentId = message.DocumentId });
 
-					var nextSigner = allSigners?.FirstOrDefault(du => du.Order == documentUser.Order + 1);
+					var nextSigner = allSigners?
+						.Where(du => du.Order > documentUser.Order && du.SigningStatus == SigningStatus.NOT_SIGNED)
+						.OrderBy(du => du.Order)
+						.FirstOrDefault();
 					if (nextSigner != null)
 					{
-						await _publishEndpoint.Publish(new NotificationMessage(
-							UserId: nextSigner.UserId,
-							Title: document.Title,
-							RequestedAt: DateTime.UtcNow));
+						var nextUser = await _userStorage.GetElementAsync(new UserSearchModel { Id = nextSigner.UserId });
+						if (nextUser == null || string.IsNullOrWhiteSpace(nextUser.Email))
+						{
+							_logger.LogWarning(
+								"Не удалось отправить уведомление следующему подписанту: пользователь {UserId} не найден или email пуст",
+								nextSigner.UserId);
+						}
+						else
+						{
+							var currentUser = await _userStorage.GetElementAsync(new UserSearchModel { Id = message.UserId });
 
-						_logger.LogInformation(
-							"Уведомление отправлено следующему подписанту UserId={UserId} (Order={Order})",
-							nextSigner.UserId, nextSigner.Order);
+							await _publishEndpoint.Publish(new NotificationMessage(
+								RecipientEmail: nextUser.Email,
+								RecipientName: nextUser.Fullname,
+								DocumentTitle: document.Title,
+								RequestedByName: currentUser?.Fullname ?? "Система документооборота",
+								RequestedAt: DateTime.UtcNow));
+
+							_logger.LogInformation(
+								"Уведомление отправлено следующему подписанту: UserId={UserId}, DocumentId={DocumentId}, Order={Order}",
+								nextSigner.UserId,
+								message.DocumentId,
+								nextSigner.Order);
+						}
 					}
 				}
 			}
@@ -185,17 +209,32 @@ namespace SigningService.Consumers
 	{
 		try
 		{
-			var signedCms = new System.Security.Cryptography.Pkcs.SignedCms();
-			signedCms.Decode(signatureBytes);
+			byte[]? cerBytes = null;
+			try
+			{
+				var signedCms = new SignedCms();
+				signedCms.Decode(signatureBytes);
+				if (signedCms.Certificates.Count > 0)
+					cerBytes = signedCms.Certificates[0].RawData;
+				else if (signedCms.SignerInfos.Count > 0)
+				{
+					var c = signedCms.SignerInfos[0].Certificate;
+					if (c != null)
+						cerBytes = c.RawData;
+				}
+			}
+			catch
+			{
+				// для ГОСТ Decode может не дать сертификаты — ниже BouncyCastle
+			}
 
-			if (signedCms.Certificates.Count == 0)
+			if (cerBytes == null && !Pkcs7SignerCertificateExtractor.TryGetSignerCertificateDer(signatureBytes, out cerBytes))
 			{
 				_logger.LogWarning(
 					"Подпись UserId={UserId} не содержит сертификата — .cer не сохранён", userId);
 				return string.Empty;
 			}
 
-			var cerBytes = signedCms.Certificates[0].RawData;
 			return await _fileStorage.SaveSignatureCertificateAsync(documentId, documentTitle, userId, cerBytes);
 		}
 		catch (Exception ex)

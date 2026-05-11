@@ -7,7 +7,10 @@ using System.Threading.Tasks;
 namespace MessageContracts
 {
 	public record NotificationMessage(
-		int UserId,
-		string Title,
+		string RecipientEmail,
+		string RecipientName,
+		string DocumentTitle,
+		string RequestedByName,
 		DateTime RequestedAt);
+
 }

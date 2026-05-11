@@ -12,10 +12,16 @@ namespace Storage.Storages
 {
 	public class SignatureStorage : ISignatureStorage
 	{
+		private readonly StorageContext _context;
+
+		public SignatureStorage(StorageContext context)
+		{
+			_context = context;
+		}
+
 		public async Task<SignatureViewModel?> DeleteAsync(SignatureBindingModel model)
 		{
-			using var context = new StorageContext();
-			var element = await context.Signatures.FirstOrDefaultAsync(rec => rec.Id == model.Id);
+			var element = await _context.Signatures.FirstOrDefaultAsync(rec => rec.Id == model.Id);
 			if (element != null)
 			{
 				if (element.IsDeleted)
@@ -23,7 +29,7 @@ namespace Storage.Storages
 					return element.GetViewModel;
 				}
 				element.IsDeleted = true;
-				await context.SaveChangesAsync();
+				await _context.SaveChangesAsync();
 				return element.GetViewModel;
 			}
 			return null;
@@ -38,8 +44,7 @@ namespace Storage.Storages
 			{
 				return null;
 			}
-			using var context = new StorageContext();
-			var query = context.Signatures.AsQueryable();
+			var query = _context.Signatures.AsQueryable();
 			if (!model.IsDeleted.HasValue || model.IsDeleted.Value == false)
 			{
 				query = query.Where(x => !x.IsDeleted);
@@ -67,8 +72,7 @@ namespace Storage.Storages
 			{
 				return new();
 			}
-			using var context = new StorageContext();
-			var query = context.Signatures.AsQueryable();
+			var query = _context.Signatures.AsQueryable();
 			if (!model.IsDeleted.HasValue || model.IsDeleted.Value == false)
 			{
 				query = query.Where(x => !x.IsDeleted);
@@ -100,8 +104,7 @@ namespace Storage.Storages
 
 		public async Task<List<SignatureViewModel>> GetFullListAsync()
 		{
-			using var context = new StorageContext();
-			return await context.Signatures
+			return await _context.Signatures
 				.Where(x => !x.IsDeleted)
 				.Select(x => x.GetViewModel)
 				.ToListAsync();
@@ -114,8 +117,7 @@ namespace Storage.Storages
 				return new();
 			}
 			var skip = (model.PageNumber.Value - 1) * model.PageSize.Value;
-			using var context = new StorageContext();
-			return await context.Signatures
+			return await _context.Signatures
 				.Where(x => !x.IsDeleted)
 				.OrderBy(x => x.Id)
 				.Skip(skip)
@@ -131,27 +133,24 @@ namespace Storage.Storages
 			{
 				return null;
 			}
-			using var context = new StorageContext();
 			newSignature.IsDeleted = false;
-			await context.Signatures.AddAsync(newSignature);
-			await context.SaveChangesAsync();
+			await _context.Signatures.AddAsync(newSignature);
+			await _context.SaveChangesAsync();
 			return newSignature.GetViewModel;
 		}
 
 		public async Task<SignatureViewModel?> UpdateAsync(SignatureBindingModel model)
 		{
-			using var context = new StorageContext();
-			var signature = await context.Signatures.FirstOrDefaultAsync(x => x.Id == model.Id);
+			var signature = await _context.Signatures.FirstOrDefaultAsync(x => x.Id == model.Id);
 			if (signature == null)
 			{
 				return null;
 			}
 			signature.Update(model);
-			await context.SaveChangesAsync();
+			await _context.SaveChangesAsync();
 			return signature.GetViewModel;
 		}
 	}
 }
-
 
 

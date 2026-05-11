@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Models;
 using Org.BouncyCastle.Cms;
+using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Utilities.Collections;
 using Org.BouncyCastle.X509;
 using Org.BouncyCastle.X509.Store;
@@ -138,7 +139,7 @@ namespace API.Controllers
 					Title = title,
 					Description = description,
 					UserIds = userIds,
-					CreatedByUserId = user?.Id ?? 0,
+					CreatedByUserId = user.Id,
 					CreatedAt = DateTime.UtcNow,
 					Status = DocumentStatus.NOT_SIGNED,
 					IsDeleted = false,
@@ -146,8 +147,7 @@ namespace API.Controllers
 				};
 
 				_logger.LogInformation("Попытка создания документа '{Title}'", model.Title);
-				//string extension = Path.GetExtension(file.FileName);
-				//using var stream = file.OpenReadStream();
+
 				if (!await _documentLogic.CreateAsync(model, stream, extension))
 				{
 					_logger.LogWarning("Документ '{Title}' не был создан", model.Title);
@@ -155,32 +155,42 @@ namespace API.Controllers
 				}
 				_logger.LogInformation("Документ '{Title}' успешно создан", model.Title);
 
-				if (isSequential)
-				{
-					// при последовательном режиме уведомляем только первого подписанта
-					await _publishEndpoint.Publish(new NotificationMessage(
-						UserId: model.UserIds[0],
-						Title: title,
-						RequestedAt: DateTime.UtcNow));
-				}
-				else
-				{
-					// иначе уведомляем всех
-					foreach (int userId in model.UserIds)
-					{
-						await _publishEndpoint.Publish(new NotificationMessage(
-							UserId: userId,
-							Title: title,
-							RequestedAt: DateTime.UtcNow));
-					}
-				}
-				
+				// отправка уведомлений
+				await PublishDocumentCreatedNotificationsAsync(model, user, isSequential);
 
 				return Ok("Документ создан");
 			}
 			catch (Exception ex)
 			{
 				return BadRequest("Ошибка при создании документа " + ex.Message);
+			}
+		}
+
+		// логика отправки уведомлений на consumer
+		private async Task PublishDocumentCreatedNotificationsAsync(
+					DocumentBindingModel model,
+					UserViewModel creator,
+					bool isSequential)
+		{
+			var signerIds = isSequential
+				? model.UserIds.Take(1)
+				: model.UserIds;
+
+			foreach (var userId in signerIds)
+			{
+				var signer = await _userLogic.ReadElementAsync(new UserSearchModel { Id = userId });
+				if (signer == null || string.IsNullOrWhiteSpace(signer.Email))
+				{
+					_logger.LogWarning("Не найден email подписанта {UserId}", userId);
+					continue;
+				}
+
+				await _publishEndpoint.Publish(new NotificationMessage(
+					RecipientEmail: signer.Email,
+					RecipientName: signer.Fullname,
+					DocumentTitle: model.Title,
+					RequestedByName: creator.Fullname,
+					RequestedAt: DateTime.UtcNow));
 			}
 		}
 
@@ -335,6 +345,8 @@ namespace API.Controllers
 			if (signatures == null || signatures.Count == 0)
 				return NotFound("Подписи для документа не найдены");
 
+			var readmeSigners = new List<(string SignerName, DateTime SignedAt)>();
+
 			using var memoryStream = new MemoryStream();
 			using (var archive = new System.IO.Compression.ZipArchive(
 				memoryStream, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
@@ -348,11 +360,15 @@ namespace API.Controllers
 					await docStream.CopyToAsync(entryStream);
 				}
 
-				// подписи и сертификаты
+				// подписи 
 				foreach (var sig in signatures.Where(s => !s.IsDeleted))
 				{
 					var user = await _userLogic.ReadElementAsync(new UserSearchModel { Id = sig.UserId });
 					var safeName = SanitizeName(user?.Fullname ?? sig.UserId.ToString());
+					var signerForReadme = string.IsNullOrWhiteSpace(user?.Fullname)
+						? $"UserId={sig.UserId}"
+						: user.Fullname.Trim();
+					readmeSigners.Add((signerForReadme, sig.SignedAt));
 
 						// файл подписи
 						if (!string.IsNullOrEmpty(sig.Path))
@@ -370,35 +386,20 @@ namespace API.Controllers
 								await using var sigEntryStream = sigEntry.Open();
 								sigBuffer.Position = 0;
 								await sigBuffer.CopyToAsync(sigEntryStream);
-
-								// PKCS#7 detached: публичный сертификат обычно вложен в SignedData (как в SigningService)
-								sigBuffer.Position = 0;
-								var cerData = ExtractCertificateFromSignature(sigBuffer);
-
-								if (cerData != null)
-								{
-									var cerEntry = archive.CreateEntry($"certificates/{safeName}.cer");
-									await using var cerEntryStream = cerEntry.Open();
-									await cerEntryStream.WriteAsync(cerData);
-									_logger.LogInformation("Сертификат извлечен из подписи {Path}", sig.Path);
-								}
-								else
-								{
-									_logger.LogWarning("Не удалось извлечь сертификат из подписи {Path}", sig.Path);
-								}
 							}
 							catch (Exception ex)
 							{
 								_logger.LogWarning(ex, "Не удалось обработать файл подписи {Path}", sig.Path);
 							}
 						}
-					}
+
+				}
 
 				// инструкция по верификации
 				var readmeEntry = archive.CreateEntry("README.txt");
 				await using var readmeStream = readmeEntry.Open();
 				await using var writer = new StreamWriter(readmeStream);
-				await writer.WriteAsync(BuildReadme(document.Title, signatures));
+				await writer.WriteAsync(BuildReadme(document.Title, readmeSigners));
 			}
 
 			memoryStream.Position = 0;
@@ -413,43 +414,6 @@ namespace API.Controllers
 			return BadRequest("Ошибка при формировании пакета: " + ex.Message);
 		}
 	}
-		
-	/// <summary>
-	/// Первый сертификат из PKCS#7 (.sig). Для ГОСТ BouncyCastle кладёт сертификаты в CMS, но
-	/// <see cref="SignedCms.Certificates"/> часто пуст — тогда разбираем через BouncyCastle.
-	/// </summary>
-	private static byte[]? ExtractCertificateFromSignature(Stream signatureP7Bytes)
-	{
-		using var ms = new MemoryStream();
-		signatureP7Bytes.CopyTo(ms);
-		var bytes = ms.ToArray();
-
-		try
-		{
-			var signedCms = new SignedCms();
-			signedCms.Decode(bytes);
-			if (signedCms.Certificates.Count > 0)
-				return signedCms.Certificates[0].RawData;
-		}
-		catch
-		{
-			// неподдерживаемый алгоритм / формат для SignedCms
-		}
-
-		try
-		{
-			var cms = new CmsSignedData(bytes);
-			var store = cms.GetCertificates();
-			var selector = new X509CertStoreSelector();
-			foreach (X509Certificate cert in store.EnumerateMatches(selector))
-				return cert.GetEncoded();
-		}
-		catch
-		{
-		}
-
-		return null;
-	}
 
 	// вспомогательные
 	private static string SanitizeName(string name)
@@ -458,7 +422,7 @@ namespace API.Controllers
 		return new string(name.Where(c => !invalid.Contains(c)).ToArray()).Trim();
 	}
 
-	private static string BuildReadme(string title, List<Contracts.ViewModels.SignatureViewModel> signatures)
+	private static string BuildReadme(string title, IReadOnlyList<(string SignerName, DateTime SignedAt)> signers)
 	{
 		var sb = new System.Text.StringBuilder();
 		sb.AppendLine($"Пакет верификации документа: {title}");
@@ -467,19 +431,20 @@ namespace API.Controllers
 		sb.AppendLine("Состав пакета:");
 		sb.AppendLine("  document.*          — оригинальный документ");
 		sb.AppendLine("  signatures/*.sig    — отсоединённые подписи (PKCS#7 DER)");
-		sb.AppendLine("  certificates/*.cer  — публичные сертификаты подписантов");
 		sb.AppendLine();
 		sb.AppendLine("Проверка подписи (КриптоПро CSP):");
-		sb.AppendLine("  csptest -sfsign -verify -in document.* -signature signatures/<имя>.sig -detached");
+		sb.AppendLine("  csptest -sfsign -verify -in document.* -signature signatures/<ФИО>.sig -detached");
 		sb.AppendLine();
 		sb.AppendLine("Проверка подписи (OpenSSL, только для RSA):");
-		sb.AppendLine("  openssl smime -verify -inform DER -in signatures/<имя>.sig -content document.* -noverify");
+		sb.AppendLine("  openssl smime -verify -inform DER -in signatures/<ФИО>.sig -content document.* -noverify");
 		sb.AppendLine();
-		sb.AppendLine("Подписанты:");
-		foreach (var sig in signatures.Where(s => !s.IsDeleted))
-			sb.AppendLine($"  - UserId={sig.UserId}, подписано {sig.SignedAt:dd.MM.yyyy HH:mm} UTC");
+		sb.AppendLine("Подписанты (ФИО в системе):");
+		foreach (var (signerName, signedAt) in signers)
+		{
+			sb.AppendLine($"  - {signerName}, подписано {signedAt:dd.MM.yyyy HH:mm} UTC");
+		}
 		return sb.ToString();
-	}
+		}
 	}
 
 	public class FileUploadPolicy

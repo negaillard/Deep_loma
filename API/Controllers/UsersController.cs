@@ -4,7 +4,7 @@ using Contracts.LogicContracts;
 using Contracts.SearchModels;
 using Microsoft.AspNetCore.Mvc;
 
-namespace API.Seeding
+namespace API.Controllers
 {
 	[Route("api/[controller]")]
 	[ApiController]

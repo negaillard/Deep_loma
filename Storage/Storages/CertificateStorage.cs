@@ -13,14 +13,20 @@ namespace Storage.Storages
 {
 	public class CertificateStorage : ICertificateStorage
 	{
+		private readonly StorageContext _context;
+
+		public CertificateStorage(StorageContext context)
+		{
+			_context = context;
+		}
+
 		public async Task<CertificateViewModel?> DeleteAsync(CertificateBindingModel model)
 		{
-			using var context = new StorageContext();
-			var element = await FindElementAsync(context, model);
+			var element = await FindElementAsync(_context, model);
 			if (element != null)
 			{
-				context.Certificates.Remove(element);
-				await context.SaveChangesAsync();
+				_context.Certificates.Remove(element);
+				await _context.SaveChangesAsync();
 				return element.GetViewModel;
 			}
 			return null;
@@ -34,8 +40,7 @@ namespace Storage.Storages
 			{
 				return null;
 			}
-			using var context = new StorageContext();
-			var query = context.Certificates.AsQueryable();
+			var query = _context.Certificates.AsQueryable();
 			if (model.IsActual.HasValue)
 			{
 				query = query.Where(x => x.IsActual == model.IsActual.Value);
@@ -69,8 +74,7 @@ namespace Storage.Storages
 			{
 				return new();
 			}
-			using var context = new StorageContext();
-			var query = context.Certificates.AsQueryable();
+			var query = _context.Certificates.AsQueryable();
 			if (model.Id.HasValue)
 			{
 				query = query.Where(x => x.Id == model.Id);
@@ -114,8 +118,7 @@ namespace Storage.Storages
 
 		public async Task<List<CertificateViewModel>> GetFullListAsync()
 		{
-			using var context = new StorageContext();
-			return await context.Certificates
+			return await _context.Certificates
 				.Select(x => x.GetViewModel)
 				.ToListAsync();
 		}
@@ -127,8 +130,7 @@ namespace Storage.Storages
 				return new();
 			}
 			var skip = (model.PageNumber.Value - 1) * model.PageSize.Value;
-			using var context = new StorageContext();
-			return await context.Certificates
+			return await _context.Certificates
 				.OrderBy(x => x.Id)
 				.Skip(skip)
 				.Take(model.PageSize.Value)
@@ -143,13 +145,12 @@ namespace Storage.Storages
 			{
 				return null;
 			}
-			using var context = new StorageContext();
-			var user = await context.Users.FirstOrDefaultAsync(x => x.Id == model.UserId);
+			var user = await _context.Users.FirstOrDefaultAsync(x => x.Id == model.UserId);
 			if (user == null)
 			{
 				throw new InvalidOperationException("Пользователь не найден");
 			}
-			var oldCertificates = await context.Certificates
+			var oldCertificates = await _context.Certificates
 				.Where(x => x.UserId == model.UserId && x.IsActual)
 				.ToListAsync();
 			foreach (var certificate in oldCertificates)
@@ -157,29 +158,28 @@ namespace Storage.Storages
 				certificate.IsActual = false;
 			}
 			newCertificate.IsActual = true;
-			await context.Certificates.AddAsync(newCertificate);
-			await context.SaveChangesAsync();
+			await _context.Certificates.AddAsync(newCertificate);
+			await _context.SaveChangesAsync();
 			user.CertificateId = newCertificate.Id;
-			await context.SaveChangesAsync();
+			await _context.SaveChangesAsync();
 			return newCertificate.GetViewModel;
 		}
 
 		public async Task<CertificateViewModel?> UpdateAsync(CertificateBindingModel model)
 		{
-			using var context = new StorageContext();
-			var certificate = await FindElementAsync(context, model);
+			var certificate = await FindElementAsync(_context, model);
 			if (certificate == null)
 			{
 				return null;
 			}
 			if (model.IsActual)
 			{
-				var user = await context.Users.FirstOrDefaultAsync(x => x.Id == model.UserId);
+				var user = await _context.Users.FirstOrDefaultAsync(x => x.Id == model.UserId);
 				if (user == null)
 				{
 					throw new InvalidOperationException("Пользователь не найден");
 				}
-				var oldCertificates = await context.Certificates
+				var oldCertificates = await _context.Certificates
 					.Where(x => x.UserId == model.UserId && x.IsActual && x.Id != certificate.Id)
 					.ToListAsync();
 				foreach (var oldCertificate in oldCertificates)
@@ -189,7 +189,7 @@ namespace Storage.Storages
 				user.CertificateId = certificate.Id;
 			}
 			certificate.Update(model);
-			await context.SaveChangesAsync();
+			await _context.SaveChangesAsync();
 			return certificate.GetViewModel;
 		}
 
@@ -215,4 +215,3 @@ namespace Storage.Storages
 		}
 	}
 }
-

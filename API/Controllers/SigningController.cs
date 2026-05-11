@@ -4,6 +4,7 @@ using Contracts.LogicContracts;
 using Contracts.SearchModels;
 using Contracts.StorageContracts;
 using Contracts.ViewModels;
+using Logic;
 using MassTransit;
 using MessageContracts;
 using Microsoft.AspNetCore.Mvc;
@@ -272,17 +273,30 @@ namespace API.Controllers
 				string certPath = string.Empty;
 				try
 				{
-					var signedCms = new SignedCms();
-					signedCms.Decode(signatureBytes);
-					if (signedCms.SignerInfos.Count > 0)
+					byte[]? cerBytes = null;
+					try
 					{
-						var cert = signedCms.SignerInfos[0].Certificate;
-						if (cert != null)
+						var signedCms = new SignedCms();
+						signedCms.Decode(signatureBytes);
+						if (signedCms.Certificates.Count > 0)
+							cerBytes = signedCms.Certificates[0].RawData;
+						else if (signedCms.SignerInfos.Count > 0)
 						{
-							var cerBytes = cert.Export(System.Security.Cryptography.X509Certificates.X509ContentType.Cert);
-							certPath = await _fileStorage.SaveSignatureCertificateAsync(id, document.Title, user.Id, cerBytes);
+							var c = signedCms.SignerInfos[0].Certificate;
+							if (c != null)
+								cerBytes = c.RawData;
 						}
 					}
+					catch
+					{
+						// ГОСТ: SignedCms может не разобрать или не сопоставить сертификат
+					}
+
+					if (cerBytes == null && Pkcs7SignerCertificateExtractor.TryGetSignerCertificateDer(signatureBytes, out var bcDer))
+						cerBytes = bcDer;
+
+					if (cerBytes != null)
+						certPath = await _fileStorage.SaveSignatureCertificateAsync(id, document.Title, user.Id, cerBytes);
 				}
 				catch (Exception ex)
 				{
@@ -329,10 +343,28 @@ namespace API.Controllers
 
 					if (nextSigner != null)
 					{
-						await _publishEndpoint.Publish(new NotificationMessage(
-							UserId: nextSigner.UserId,
-							Title: $"Документ #{id} готов к подписанию",
-							RequestedAt: DateTime.UtcNow));
+						var nextUser = await _userLogic.ReadElementAsync(new UserSearchModel { Id = nextSigner.UserId });
+						if (nextUser == null || string.IsNullOrWhiteSpace(nextUser.Email))
+						{
+							_logger.LogWarning(
+								"Не удалось отправить уведомление следующему подписанту: пользователь {UserId} не найден или email пуст",
+								nextSigner.UserId);
+						}
+						else
+						{
+							await _publishEndpoint.Publish(new NotificationMessage(
+								RecipientEmail: nextUser.Email,
+								RecipientName: nextUser.Fullname,
+								DocumentTitle: document.Title,
+								RequestedByName: user.Fullname,
+								RequestedAt: DateTime.UtcNow));
+
+							_logger.LogInformation(
+								"Уведомление отправлено следующему подписанту: UserId={UserId}, DocumentId={DocumentId}, Order={Order}",
+								nextSigner.UserId,
+								id,
+								nextSigner.Order);
+						}
 					}
 				}
 

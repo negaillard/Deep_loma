@@ -203,6 +203,28 @@ public class ApiClient
         }
     }
 
+    public async Task<(Stream? Stream, string? FileName)> DownloadVerificationPackage(int id)
+    {
+        try
+        {
+            var response = await Client().GetAsync($"api/documents/{id}/verification-package",
+                HttpCompletionOption.ResponseHeadersRead);
+
+            if (!response.IsSuccessStatusCode)
+                return (null, null);
+
+            var stream = await response.Content.ReadAsStreamAsync();
+            var cd = response.Content.Headers.ContentDisposition;
+            var fileName = cd?.FileNameStar ?? cd?.FileName;
+            fileName = fileName?.Trim('"');
+            return (stream, fileName);
+        }
+        catch
+        {
+            return (null, null);
+        }
+    }
+
     public async Task<(bool Success, string Message)> DeleteDocument(int id)
     {
         try

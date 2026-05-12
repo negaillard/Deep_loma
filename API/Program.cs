@@ -17,6 +17,7 @@ using Microsoft.OpenApi.Models;
 using Models;
 using Storage;
 using Storage.Storages;
+using Logic.CertificateGenerators;
 
 AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
 {
@@ -144,7 +145,7 @@ if (certificateMode == CertificateMode.Internal)
 	if (string.Equals(internalCrypto, "Gost", StringComparison.OrdinalIgnoreCase))
 		builder.Services.AddScoped<ICertificateGeneratorLogic, SelfSignedCertificateGeneratorGost>();
 	else
-		builder.Services.AddScoped<ICertificateGeneratorLogic, SelfSignedCertificateGenerator>();
+		builder.Services.AddScoped<ICertificateGeneratorLogic, SelfSignedCertificateGeneratorRsa>();
 }
 else
 {

@@ -5,7 +5,7 @@ using Models;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
-namespace Logic
+namespace Logic.CertificateGenerators
 {
 	/// <summary>
 	/// Генерирует самоподписанные сертификаты для внутреннего режима работы системы.
@@ -13,11 +13,11 @@ namespace Logic
 	/// Файл ключевой пары сохраняется как PKCS#12 (.pfx) на файловый сервер.
 	/// Публичный сертификат хранится в БД в PEM-формате (поле PublicKey).
 	/// </summary>
-	public class SelfSignedCertificateGenerator : ICertificateGeneratorLogic
+	public class SelfSignedCertificateGeneratorRsa : ICertificateGeneratorLogic
 	{
 		private readonly IFileStorage _fileStorage;
 
-		public SelfSignedCertificateGenerator(IFileStorage fileStorage)
+		public SelfSignedCertificateGeneratorRsa(IFileStorage fileStorage)
 		{
 			_fileStorage = fileStorage;
 		}

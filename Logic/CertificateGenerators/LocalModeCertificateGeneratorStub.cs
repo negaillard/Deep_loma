@@ -1,7 +1,7 @@
 using Contracts.BindingModels;
 using Contracts.LogicContracts;
 
-namespace Logic
+namespace Logic.CertificateGenerators
 {
 	/// <summary>
 	/// Режим Local: сервер не выпускает сертификаты. Нужен только чтобы удовлетворить DI для <see cref="CertificateLogic"/>.

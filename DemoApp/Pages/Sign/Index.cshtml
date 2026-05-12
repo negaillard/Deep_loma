@@ -370,7 +370,7 @@
             document.getElementById('certValidTo').textContent = formatDate(opt.dataset.validTo);
             show('certInfo');
         }
-
+        // функция подписания
         async function performSigning() {
             const thumbprint = document.getElementById('certSelect').value;
             if (!thumbprint) return;
@@ -422,7 +422,7 @@
         }
 
         // ── CryptoPro helpers ──────────────────────────────────────────────
-
+        // получение сертификатов из локального хранилища компьютера
         function getCertificatesFromStore() {
             return new Promise((resolve, reject) => {
                 cadesplugin.async_spawn(function* () {
@@ -454,7 +454,7 @@
                 });
             });
         }
-
+        // подписание через CryptoPro Browser Plugin
         function signWithCryptoPro(base64Content, thumbprint) {
             return new Promise((resolve, reject) => {
                 cadesplugin.async_spawn(function* () {

@@ -15,7 +15,7 @@ using Org.BouncyCastle.Security;
 using Org.BouncyCastle.X509;
 using System.Security.Cryptography;
 
-namespace Logic
+namespace Logic.CertificateGenerators
 {
 	/// <summary>
 	/// Генерирует самоподписанные сертификаты для внутреннего режима (ГОСТ Р 34.10-2012 / ГОСТ Р 34.11-2012 через BouncyCastle).

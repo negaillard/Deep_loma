@@ -368,3 +368,8 @@ FodyWeavers.xsd
 .env
 docker-compose.local.yml
 docker-compose.override.yml
+/таблица.docx
+/таблица_extract.txt
+/docker-compose.api-tests.yml
+/API_Tests.postman_collection.json
+/Tests/all-test-classes.txt

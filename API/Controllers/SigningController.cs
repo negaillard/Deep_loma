@@ -10,6 +10,7 @@ using MessageContracts;
 using Microsoft.AspNetCore.Mvc;
 using Models.Enums;
 using System.Security.Cryptography.Pkcs;
+using System.Security.Cryptography.X509Certificates;
 
 namespace API.Controllers
 {
@@ -246,6 +247,58 @@ namespace API.Controllers
 						return BadRequest("Ещё не все предыдущие подписанты подписали документ");
 				}
 
+				// Извлекаем публичный сертификат из PKCS#7 для проверки владельца
+				byte[]? cerBytes = null;
+				try
+				{
+					var signedCms = new SignedCms();
+					signedCms.Decode(signatureBytes);
+					if (signedCms.Certificates.Count > 0)
+						cerBytes = signedCms.Certificates[0].RawData;
+					else if (signedCms.SignerInfos.Count > 0)
+					{
+						var c = signedCms.SignerInfos[0].Certificate;
+						if (c != null)
+							cerBytes = c.RawData;
+					}
+				}
+				catch
+				{
+					// ГОСТ: SignedCms может не разобрать или не сопоставить сертификат
+				}
+
+				if (cerBytes == null && Pkcs7SignerCertificateExtractor.TryGetSignerCertificateDer(signatureBytes, out var bcDer))
+					cerBytes = bcDer;
+
+				if (cerBytes == null)
+				{
+					_logger.LogWarning("Не удалось извлечь сертификат из подписи документа {DocumentId} пользователем {UserId}", id, user.Id);
+					return BadRequest("Не удалось извлечь сертификат из подписи");
+				}
+
+				// Извлекаем имя владельца сертификата и сравниваем его с именем пользователя в системе
+				try
+				{
+					using var cert = new X509Certificate2(cerBytes);
+					var certOwner = cert.GetNameInfo(X509NameType.SimpleName, false);
+
+					if (string.IsNullOrWhiteSpace(certOwner) || 
+					    !string.Equals(certOwner.Trim(), user.Fullname.Trim(), StringComparison.OrdinalIgnoreCase))
+					{
+						_logger.LogWarning("Отклонено сохранение подписи для документа {DocumentId}: владелец сертификата '{CertOwner}' не совпадает с пользователем '{UserFullname}'", id, certOwner, user.Fullname);
+						return BadRequest("Владелец сертификата не совпадает с текущим пользователем системы");
+					}
+				}
+				catch (Exception ex)
+				{
+					_logger.LogWarning(ex, "Ошибка при разборе сертификата из подписи документа {DocumentId}", id);
+					return BadRequest("Ошибка при разборе сертификата подписи: " + ex.Message);
+				}
+
+				var document = await _documentLogic.ReadElementAsync(new DocumentSearchModel { Id = id });
+				if (document == null || document.IsDeleted)
+					return NotFound("Документ не найден");
+
 				// Создаём запись подписи без пути (файл подписи именуется по UserId)
 				var sigRecord = await _signatureStorage.InsertAsync(new SignatureBindingModel
 				{
@@ -261,46 +314,19 @@ namespace API.Controllers
 				if (sigRecord == null)
 					return BadRequest("Не удалось создать запись подписи");
 
-				var document = await _documentLogic.ReadElementAsync(new DocumentSearchModel { Id = id });
-				if (document == null || document.IsDeleted)
-					return NotFound("Документ не найден");
-
 				// Сохраняем .sig в documents/{название}/signatures/{userId}.sig
 				using var sigStream = new MemoryStream(signatureBytes);
 				var sigPath = await _fileStorage.SaveSignatureAsync(id, document.Title, user.Id, sigStream);
 
-				// Извлекаем публичный сертификат из PKCS#7
+				// Сохраняем сертификат
 				string certPath = string.Empty;
 				try
 				{
-					byte[]? cerBytes = null;
-					try
-					{
-						var signedCms = new SignedCms();
-						signedCms.Decode(signatureBytes);
-						if (signedCms.Certificates.Count > 0)
-							cerBytes = signedCms.Certificates[0].RawData;
-						else if (signedCms.SignerInfos.Count > 0)
-						{
-							var c = signedCms.SignerInfos[0].Certificate;
-							if (c != null)
-								cerBytes = c.RawData;
-						}
-					}
-					catch
-					{
-						// ГОСТ: SignedCms может не разобрать или не сопоставить сертификат
-					}
-
-					if (cerBytes == null && Pkcs7SignerCertificateExtractor.TryGetSignerCertificateDer(signatureBytes, out var bcDer))
-						cerBytes = bcDer;
-
-					if (cerBytes != null)
-						certPath = await _fileStorage.SaveSignatureCertificateAsync(id, document.Title, user.Id, cerBytes);
+					certPath = await _fileStorage.SaveSignatureCertificateAsync(id, document.Title, user.Id, cerBytes);
 				}
 				catch (Exception ex)
 				{
-					_logger.LogWarning(ex, "Не удалось извлечь сертификат из подписи документа {DocumentId}", id);
+					_logger.LogWarning(ex, "Не удалось сохранить сертификат подписи документа {DocumentId}", id);
 				}
 
 				// Обновляем запись с путями

@@ -3,6 +3,7 @@ using Contracts.SearchModels;
 using Contracts.ViewModels;
 using Microsoft.EntityFrameworkCore;
 using Models;
+using Models.Enums;
 using Storage;
 using Storage.Models;
 using Storage.Storages;

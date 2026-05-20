@@ -6,7 +6,7 @@ using Contracts.BindingModels;
 using Contracts.Requests;
 using Contracts.Responses;
 using Contracts.ViewModels;
-using Models;
+using Models.Enums;
 
 namespace DemoApp.Services;
 

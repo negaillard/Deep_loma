@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
-using Models;
+using Models.Enums;
 
 namespace DemoApp.Authorization;
 

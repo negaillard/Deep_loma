@@ -3,13 +3,13 @@ using Contracts.SearchModels;
 using Contracts.StorageContracts;
 using Contracts.ViewModels;
 using Microsoft.EntityFrameworkCore;
-using Models;
 using Storage.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Text;
+using Models.Enums;
 
 namespace Storage.Storages
 {

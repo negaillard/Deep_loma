@@ -102,6 +102,26 @@ namespace FileStorage
 			return Task.CompletedTask;
 		}
 
+		public Task<bool> FileExistsAsync(string relativePath)
+		{
+			var fullPath = Path.Combine(_rootPath, relativePath);
+			return Task.FromResult(File.Exists(fullPath));
+		}
+
+		public async Task<string> SaveVerificationPackageAsync(int documentId, string documentTitle, Stream stream)
+		{
+			var safeTitle = SanitizeFolderName(documentTitle);
+			var folder = Path.Combine(_rootPath, "documents", safeTitle);
+			Directory.CreateDirectory(folder);
+
+			var filePath = Path.Combine(folder, $"verification_{documentId}.zip");
+
+			using var fileStream = File.Create(filePath);
+			await stream.CopyToAsync(fileStream);
+
+			return GetRelativePath(filePath);
+		}
+
 		private string GetRelativePath(string fullPath)
 		{
 			return Path.GetRelativePath(_rootPath, fullPath);

@@ -13,6 +13,10 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY ["DocumentApp/DocumentApp.csproj", "DocumentApp/"]
+COPY ["NewDiplom/Contracts.csproj", "NewDiplom/"]
+COPY ["Models/Models.csproj", "Models/"]
+COPY ["Nugets/", "Nugets/"]
+COPY ["nuget.config", "./"]
 RUN dotnet restore "./DocumentApp/DocumentApp.csproj"
 COPY . .
 WORKDIR "/src/DocumentApp"

@@ -11,6 +11,12 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY ["NotificationService/NotificationService.csproj", "NotificationService/"]
+COPY ["MessageContracts/MessageContracts.csproj", "MessageContracts/"]
+COPY ["Storage/Storage.csproj", "Storage/"]
+COPY ["NewDiplom/Contracts.csproj", "NewDiplom/"]
+COPY ["Models/Models.csproj", "Models/"]
+COPY ["Nugets/", "Nugets/"]
+COPY ["nuget.config", "./"]
 RUN dotnet restore "./NotificationService/NotificationService.csproj"
 COPY . .
 WORKDIR "/src/NotificationService"

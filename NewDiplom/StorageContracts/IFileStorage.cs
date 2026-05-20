@@ -39,5 +39,15 @@ namespace Contracts.StorageContracts
 		/// Удаляет файл сертификата по относительному пути.
 		/// </summary>
 		Task DeleteCertificateAsync(string relativePath);
+
+		/// <summary>
+		/// Проверяет существование файла по относительному пути.
+		/// </summary>
+		Task<bool> FileExistsAsync(string relativePath);
+
+		/// <summary>
+		/// Сохраняет готовый архив пакета верификации в папку документа.
+		/// </summary>
+		Task<string> SaveVerificationPackageAsync(int documentId, string documentTitle, Stream stream);
 	}
 }

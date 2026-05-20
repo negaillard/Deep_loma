@@ -1,6 +1,7 @@
 @page
 @model DemoApp.Pages.Users.IndexModel
 @using Models
+@using Models.Enums
 @{
     ViewData["Title"] = "Пользователи";
 }
@@ -343,9 +344,9 @@
                             </label>
                             <select asp-for="EditUser.SystemRole" id="editUserSystemRole"
                                     class="form-select form-select-sm">
-                                <option value="@Models.SystemRole.DocumentManager">Менеджер документов</option>
-                                <option value="@Models.SystemRole.Signer">Подписант</option>
-                                <option value="@Models.SystemRole.SystemAdmin">Системный администратор</option>
+                                <option value="@SystemRole.DocumentManager">Менеджер документов</option>
+                                <option value="@SystemRole.Signer">Подписант</option>
+                                <option value="@SystemRole.SystemAdmin">Системный администратор</option>
                             </select>
                         </div>
                         <div class="col-sm-6">

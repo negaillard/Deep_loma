@@ -1,7 +1,7 @@
 using Contracts.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
-using Models;
+using Models.Enums;
 
 namespace API.Authorization
 {

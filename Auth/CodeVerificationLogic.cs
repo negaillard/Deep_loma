@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -16,15 +16,18 @@ namespace Auth
 		private readonly IDistributedCache _cache;
 		private readonly IEmailService _emailService;
 		private readonly RedisSettings _settings;
+		private readonly AuthTestOptions _authTestOptions;
 
 		public CodeVerificationLogic(
 			IDistributedCache cache,
 			IEmailService emailService,
-			IOptions<RedisSettings> settings)
+			IOptions<RedisSettings> settings,
+			IOptions<AuthTestOptions> authTestOptions)
 		{
 			_cache = cache;
 			_emailService = emailService;
 			_settings = settings.Value;
+			_authTestOptions = authTestOptions.Value;
 		}
 
 		public string GenerateCode()
@@ -37,6 +40,11 @@ namespace Auth
 		{
 			try
 			{
+				if (!string.IsNullOrWhiteSpace(_authTestOptions.TestBypassCode))
+				{
+					return (true, "Тестовый режим: код из конфигурации Auth:TestBypassCode");
+				}
+
 				// Проверяем rate limiting (не чаще чем раз в 1 минуту)
 				var rateLimitKey = $"ratelimit:{email}";
 				var existingRateLimit = await _cache.GetStringAsync(rateLimitKey);
@@ -96,6 +104,10 @@ namespace Auth
 		{
 			try
 			{
+				var bypass = _authTestOptions.TestBypassCode;
+				if (!string.IsNullOrWhiteSpace(bypass) && code == bypass)
+					return (true, "Код подтвержден");
+
 				var cacheKey = GetCacheKey(email);
 				var serializedCodeInfo = await _cache.GetStringAsync(cacheKey);
 
@@ -103,6 +115,8 @@ namespace Auth
 					return (false, "Код не найден или устарел. Запросите новый код.");
 
 				var codeInfo = JsonSerializer.Deserialize<CodeInfo>(serializedCodeInfo);
+				if (codeInfo == null)
+					return (false, "Код не найден или устарел. Запросите новый код.");
 
 				// Проверяем количество попыток
 				if (codeInfo.Attempts >= 3)

@@ -1,7 +1,7 @@
 using Contracts.Requests;
 using Contracts.Responses;
 using Contracts.ViewModels;
-using Models;
+using Models.Enums;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;

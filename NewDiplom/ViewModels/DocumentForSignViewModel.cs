@@ -1,4 +1,4 @@
-using Models;
+using Models.Enums;
 
 namespace Contracts.ViewModels
 {

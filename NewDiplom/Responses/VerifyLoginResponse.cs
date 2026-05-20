@@ -1,4 +1,4 @@
-﻿using Models;
+﻿using Models.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;

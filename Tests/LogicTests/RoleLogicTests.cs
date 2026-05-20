@@ -3,7 +3,7 @@ using Contracts.SearchModels;
 using Contracts.StorageContracts;
 using Contracts.ViewModels;
 using Logic;
-using Models;
+using Models.Enums;
 using Moq;
 using System;
 using System.Collections.Generic;

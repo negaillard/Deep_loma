@@ -19,14 +19,6 @@ namespace API.Controllers
 			_logger = logger;
 		}
 
-		//[AuthorizeDocument]
-		//[HttpGet]
-		//public async Task<IActionResult> GetAll()
-		//{
-		//	_logger.LogInformation("Попытка получения списка пользователей");
-		//	return Ok(await _userLogic.ReadListAsync(null));
-		//}
-
 		[AuthorizeSigner]
 		[HttpGet("{id}")]
 		public async Task<IActionResult> GetById(int id)

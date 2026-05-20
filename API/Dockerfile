@@ -2,6 +2,11 @@
 
 # Этот этап используется при запуске из VS в быстром режиме (по умолчанию для конфигурации отладки)
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    fontconfig \
+    fonts-liberation \
+    && rm -rf /var/lib/apt/lists/*
 USER $APP_UID
 WORKDIR /app
 EXPOSE 8080
@@ -13,6 +18,15 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY ["API/API.csproj", "API/"]
+COPY ["Auth/Auth.csproj", "Auth/"]
+COPY ["Logic/Logic.csproj", "Logic/"]
+COPY ["NewDiplom/Contracts.csproj", "NewDiplom/"]
+COPY ["Storage/Storage.csproj", "Storage/"]
+COPY ["FileStorage/FileStorage.csproj", "FileStorage/"]
+COPY ["MessageContracts/MessageContracts.csproj", "MessageContracts/"]
+COPY ["Models/Models.csproj", "Models/"]
+COPY ["Nugets/", "Nugets/"]
+COPY ["nuget.config", "./"]
 RUN dotnet restore "./API/API.csproj"
 COPY . .
 WORKDIR "/src/API"

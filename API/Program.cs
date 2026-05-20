@@ -84,6 +84,7 @@ builder.Services.AddSwaggerGen(options =>
 /// конфигурация из appsettings
 builder.Services.Configure<RedisSettings>(builder.Configuration.GetSection("Redis"));
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+builder.Services.Configure<AuthTestOptions>(builder.Configuration.GetSection("Auth"));
 
 /// регистрация сервисов для авторизации
 builder.Services.AddScoped<IEmailService, EmailService>();

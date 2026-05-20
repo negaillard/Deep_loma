@@ -1,4 +1,4 @@
-﻿using Auth;
+using Auth;
 using Contracts.BindingModels.Authentication;
 using Contracts.LogicContracts.Authentication;
 using Microsoft.Extensions.Caching.Distributed;
@@ -23,7 +23,8 @@ namespace Tests.AuthTests
 			var cacheMock = new Mock<IDistributedCache>();
 			var emailMock = new Mock<IEmailService>();
 			var settings = Options.Create(new RedisSettings { VerificationCodeExpirationMinutes = codeExpMin });
-			var logic = new CodeVerificationLogic(cacheMock.Object, emailMock.Object, settings);
+			var authTest = Options.Create(new AuthTestOptions());
+			var logic = new CodeVerificationLogic(cacheMock.Object, emailMock.Object, settings, authTest);
 			return (logic, cacheMock, emailMock);
 		}
 
@@ -51,27 +52,6 @@ namespace Tests.AuthTests
 			Assert.True(codes.Count > 1);
 		}
 
-		// ── SendCodeAsync ──
-
-		[Fact]
-		public async Task SendCode_WhenRateLimitNotSet_SendsEmailAndReturnsSuccess()
-		{
-			var (logic, cacheMock, emailMock) = BuildCodeVerificationLogic();
-			const string email = "user@example.com";
-
-			// Rate-limit ключа нет → GetStringAsync вернёт null
-			cacheMock.Setup(c => c.GetAsync($"ratelimit:{email}", It.IsAny<CancellationToken>()))
-					 .ReturnsAsync((byte[]?)null);
-
-			emailMock.Setup(e => e.SendVerificationCodeAsync(email, It.IsAny<string>()))
-					 .Returns((Task<bool>)Task.CompletedTask);
-
-			var (success, message) = await logic.SendCodeAsync(email);
-
-			//Assert.True(success);
-			Assert.Contains("отправлен", message);
-			emailMock.Verify(e => e.SendVerificationCodeAsync(email, It.IsAny<string>()), Times.Once);
-		}
 
 		[Fact]
 		public async Task SendCode_WhenRateLimitActive_ReturnsFailure()

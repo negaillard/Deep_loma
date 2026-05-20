@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using Models;
+using Models.Enums;
 
 namespace DemoApp.Helpers;
 

@@ -1,6 +1,6 @@
 using Contracts.BindingModels;
 using Contracts.ViewModels;
-using Models;
+using Models.Enums;
 using System.ComponentModel.DataAnnotations;
 
 namespace Storage.Models

@@ -4,7 +4,7 @@ using Contracts.Requests;
 using Contracts.Responses;
 using Contracts.SearchModels;
 using Microsoft.AspNetCore.Mvc;
-using Models;
+using Models.Enums;
 
 namespace API.Controllers
 {

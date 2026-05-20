@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Models;
 using DemoApp.Services;
+using Models.Enums;
 
 namespace DemoApp.Pages.Sign;
 

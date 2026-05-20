@@ -8,7 +8,7 @@ using Logic;
 using MassTransit;
 using MessageContracts;
 using Microsoft.AspNetCore.Mvc;
-using Models;
+using Models.Enums;
 using System.Security.Cryptography.Pkcs;
 
 namespace API.Controllers

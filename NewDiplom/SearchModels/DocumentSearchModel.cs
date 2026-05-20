@@ -1,4 +1,4 @@
-using Models;
+using Models.Enums;
 using System.Collections.Generic;
 
 namespace Contracts.SearchModels

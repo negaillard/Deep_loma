@@ -3,7 +3,7 @@ using Contracts.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Models;
+using Models.Enums;
 
 namespace DemoApp.Pages.Documents;
 

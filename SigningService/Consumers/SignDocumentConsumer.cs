@@ -6,7 +6,7 @@ using Logic;
 using MassTransit;
 using MessageContracts;
 using Microsoft.Extensions.Logging;
-using Models;
+using Models.Enums;
 using System.Security.Cryptography.Pkcs;
 
 namespace SigningService.Consumers

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Models;
 using System.ComponentModel.DataAnnotations;
+using Models.Enums;
 
 namespace DemoApp.Pages.Users;
 

@@ -1,0 +1,130 @@
+# Внутренний режим (AppMode=Internal): SigningService + NotificationService.
+# Почта NotificationService — из appsettings.json в образе.
+# ClamAV — свой контейнер в этом стеке (отдельно от локального compose).
+# DemoApp — http://localhost:7083 (API: 7080).
+#
+#   docker compose -f docker-compose.internal.yml --env-file .env up --build
+#
+# Миграции: .\scripts\apply-docker-migrations.ps1 -Target internal
+# Первый старт ClamAV может занять 1–2 минуты.
+
+name: newdiplom-internal
+
+services:
+  sql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+    ports:
+      - "14333:1433"
+    volumes:
+      - sql-internal-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P $$MSSQL_SA_PASSWORD -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 25
+      start_period: 90s
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  clamav:
+    image: clamav/clamav:latest
+    ports:
+      - "13311:3310"
+
+  api:
+    build:
+      context: .
+      dockerfile: API/Dockerfile
+    user: root
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      DisableHttpsRedirection: "true"
+      ConnectionStrings__Redis: redis:6379,abortConnect=false
+      ConnectionStrings__DefaultConnection: "Server=sql;Database=DCP_Internal;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;MultipleActiveResultSets=True"
+      AppMode: Internal
+      CertificateMode: Internal
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Username: guest
+      RabbitMQ__Password: guest
+      FileStorage__RootPath: /app/data
+      Antivirus__Host: clamav
+      Antivirus__Port: "3310"
+    ports:
+      - "7080:8080"
+    volumes:
+      - internal-files:/app/data
+    depends_on:
+      sql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+      clamav:
+        condition: service_started
+
+  demo:
+    build:
+      context: .
+      dockerfile: DemoApp/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      DisableHttpsRedirection: "true"
+      ApiBaseUrl: http://api:8080/
+      CertificateMode: Internal
+    ports:
+      - "7083:8080"
+    depends_on:
+      - api
+
+  signing:
+    build:
+      context: .
+      dockerfile: SigningService/Dockerfile
+    user: root
+    environment:
+      ConnectionStrings__DefaultConnection: "Server=sql;Database=DCP_Internal;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;MultipleActiveResultSets=True"
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Username: guest
+      RabbitMQ__Password: guest
+      FileStorage__RootPath: /app/data
+      InternalCryptoAlgorithm: Rsa
+    volumes:
+      - internal-files:/app/data
+    depends_on:
+      sql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+
+  notification:
+    build:
+      context: .
+      dockerfile: NotificationService/Dockerfile
+    environment:
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Username: guest
+      RabbitMQ__Password: guest
+    depends_on:
+      sql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+
+volumes:
+  sql-internal-data:
+  internal-files:

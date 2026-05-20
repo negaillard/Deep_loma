@@ -1,7 +1,7 @@
 using Contracts.BindingModels;
 using Contracts.SearchModels;
 using Contracts.ViewModels;
-using Models;
+using Models.Enums;
 
 namespace Contracts.LogicContracts
 {

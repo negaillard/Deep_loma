@@ -1,6 +1,6 @@
 using Contracts;
 using Microsoft.EntityFrameworkCore;
-using Models;
+using Models.Enums;
 using Storage;
 using Storage.Models;
 
@@ -19,54 +19,68 @@ namespace API.Seeding
 			var logger = app.Logger;
 			var config = app.Configuration;
 
-			await using var context = new StorageContext();
-
-			// Всегда гарантируем наличие служебной роли «Нет роли»
-			await EnsureNoRoleAsync(context, logger);
-
-			// Далее — только если пользователей ещё нет
-			if (await context.Users.AnyAsync())
+			using (var scope = app.Services.CreateScope())
 			{
-				logger.LogInformation("Пользователи уже существуют — засев начального администратора пропущен.");
-				return;
+				var context = scope.ServiceProvider.GetRequiredService<StorageContext>();
+
+				try
+				{
+					logger.LogInformation("Применение миграций базы данных при запуске...");
+					await context.Database.MigrateAsync();
+					logger.LogInformation("Миграции успешно применены.");
+				}
+				catch (Exception ex)
+				{
+					logger.LogError(ex, "Ошибка при автоматическом применении миграций базы данных.");
+				}
+
+				// Всегда гарантируем наличие служебной роли «Нет роли»
+				await EnsureNoRoleAsync(context, logger);
+
+				// Далее — только если пользователей ещё нет
+				if (await context.Users.AnyAsync())
+				{
+					logger.LogInformation("Пользователи уже существуют — засев начального администратора пропущен.");
+					return;
+				}
+
+				var email    = config["InitialAdmin:Email"];
+				var login    = config["InitialAdmin:Login"];
+				var fullname = config["InitialAdmin:Fullname"];
+
+				if (string.IsNullOrWhiteSpace(email) ||
+					string.IsNullOrWhiteSpace(login) ||
+					string.IsNullOrWhiteSpace(fullname))
+				{
+					logger.LogWarning(
+						"Секция InitialAdmin не настроена — первоначальный администратор не будет создан. " +
+						"Укажите InitialAdmin:Email, InitialAdmin:Login, InitialAdmin:Fullname в конфиге.");
+					return;
+				}
+
+				logger.LogInformation("База данных пуста. Создание первоначального администратора...");
+
+				var adminRole = await EnsureAdminRoleAsync(context, logger);
+
+				var admin = new User
+				{
+					Fullname      = fullname,
+					Login         = login,
+					Email         = email,
+					SystemRole    = SystemRole.SystemAdmin,
+					RoleId        = adminRole.Id,
+					CertificateId = 0,
+					Created       = DateTime.UtcNow,
+					IsActive      = true,
+				};
+
+				await context.Users.AddAsync(admin);
+				await context.SaveChangesAsync();
+
+				logger.LogInformation(
+					"Первоначальный администратор создан: Login={Login}, Email={Email}",
+					admin.Login, admin.Email);
 			}
-
-			var email    = config["InitialAdmin:Email"];
-			var login    = config["InitialAdmin:Login"];
-			var fullname = config["InitialAdmin:Fullname"];
-
-			if (string.IsNullOrWhiteSpace(email) ||
-				string.IsNullOrWhiteSpace(login) ||
-				string.IsNullOrWhiteSpace(fullname))
-			{
-				logger.LogWarning(
-					"Секция InitialAdmin не настроена — первоначальный администратор не будет создан. " +
-					"Укажите InitialAdmin:Email, InitialAdmin:Login, InitialAdmin:Fullname в конфиге.");
-				return;
-			}
-
-			logger.LogInformation("База данных пуста. Создание первоначального администратора...");
-
-			var adminRole = await EnsureAdminRoleAsync(context, logger);
-
-			var admin = new User
-			{
-				Fullname      = fullname,
-				Login         = login,
-				Email         = email,
-				SystemRole    = SystemRole.SystemAdmin,
-				RoleId        = adminRole.Id,
-				CertificateId = 0,
-				Created       = DateTime.UtcNow,
-				IsActive      = true,
-			};
-
-			await context.Users.AddAsync(admin);
-			await context.SaveChangesAsync();
-
-			logger.LogInformation(
-				"Первоначальный администратор создан: Login={Login}, Email={Email}",
-				admin.Login, admin.Email);
 		}
 
 		/// <summary>

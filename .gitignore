@@ -373,3 +373,5 @@ docker-compose.override.yml
 /docker-compose.api-tests.yml
 /API_Tests.postman_collection.json
 /Tests/all-test-classes.txt
+/all-classes.txt
+/scripts

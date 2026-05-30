@@ -124,11 +124,16 @@ namespace Storage.Storages
 			{
 				return null;
 			}
-			documentUser.Update(model);
-			await _context.SaveChangesAsync();
-			await UpdateDocumentStatusAsync(_context, documentUser.DocumentId);
-			return documentUser.GetViewModel;
+
+			return await StorageTransactionHelper.ExecuteInTransactionAsync(_context, async () =>
+			{
+				documentUser.Update(model);
+				await _context.SaveChangesAsync();
+				await UpdateDocumentStatusAsync(_context, documentUser.DocumentId);
+				return documentUser.GetViewModel;
+			});
 		}
+
 		public async Task<(List<DocumentForSignViewModel> Items, int TotalCount)> GetPagedForSignAsync(
 			int userId, SigningStatus? signingStatus, int pageNumber, int pageSize)
 		{

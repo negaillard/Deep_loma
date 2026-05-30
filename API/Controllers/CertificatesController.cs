@@ -94,6 +94,11 @@ namespace API.Controllers
 			try
 			{
 				_logger.LogInformation("Получение сертификата id={CertId}", id);
+				var currentUser = HttpContext.Items["User"] as Contracts.ViewModels.UserViewModel;
+				if (currentUser == null)
+				{
+					return Unauthorized();
+				}
 
 				var certificate = await _certificateLogic.ReadElementAsync(new CertificateSearchModel { Id = id });
 
@@ -101,6 +106,15 @@ namespace API.Controllers
 				{
 					_logger.LogWarning("Сертификат id={CertId} не найден", id);
 					return NotFound();
+				}
+
+				// Проверка прав доступа (BOLA/IDOR)
+				if (currentUser.SystemRole != Models.Enums.SystemRole.SystemAdmin && 
+				    currentUser.SystemRole != Models.Enums.SystemRole.DocumentManager && 
+				    certificate.UserId != currentUser.Id)
+				{
+					_logger.LogWarning("Пользователь {UserId} пытался получить чужой сертификат {CertId}", currentUser.Id, id);
+					return Forbid();
 				}
 
 				return Ok(certificate);

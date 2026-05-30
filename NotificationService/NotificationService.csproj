@@ -16,6 +16,7 @@
 	</ItemGroup>
 	
   <ItemGroup>
+	  <ProjectReference Include="..\AppLogging\AppLogging.csproj" />
 	  <ProjectReference Include="..\MessageContracts\MessageContracts.csproj" />
 	  <ProjectReference Include="..\NewDiplom\Contracts.csproj" />
   </ItemGroup>

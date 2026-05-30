@@ -129,6 +129,7 @@ namespace Storage.Storages
 			return items;
 		}
 
+		// транзакция
 		public async Task<DocumentViewModel?> InsertAsync(DocumentBindingModel model)
 		{
 			var newDocument = Document.Create(model);
@@ -136,40 +137,44 @@ namespace Storage.Storages
 			{
 				return null;
 			}
-			newDocument.IsDeleted = false;
-			await _context.Documents.AddAsync(newDocument);
-			await _context.SaveChangesAsync();
-			if (model.UserIds != null && model.UserIds.Count > 0)
+
+			return await StorageTransactionHelper.ExecuteInTransactionAsync(_context, async () =>
 			{
-				var userIds = model.IsSequential
-					? model.UserIds
-					: model.UserIds.Distinct().ToList();
-
-				var activeUserIds = await _context.Users
-					.Where(x => userIds.Contains(x.Id) && x.IsActive)
-					.Select(x => x.Id)
-					.ToListAsync();
-				if (activeUserIds.Count != userIds.Distinct().Count())
-				{
-					throw new InvalidOperationException("Нельзя назначить неактивного пользователя на подписание");
-				}
-
-				// При последовательном режиме порядок в списке = порядок подписания (1-based).
-				// При параллельном режиме Order = 0 (очерёдности нет).
-				var documentUsers = userIds
-					.Select((userId, index) => new DocumentUser
-					{
-						UserId = userId,
-						DocumentId = newDocument.Id,
-						SigningStatus = SigningStatus.NOT_SIGNED,
-						AssignedAt = null,
-						Order = model.IsSequential ? index + 1 : 0,
-					})
-					.ToList();
-				await _context.DocumentUsers.AddRangeAsync(documentUsers);
+				newDocument.IsDeleted = false;
+				await _context.Documents.AddAsync(newDocument);
 				await _context.SaveChangesAsync();
-			}
-			return newDocument.GetViewModel;
+				if (model.UserIds != null && model.UserIds.Count > 0)
+				{
+					var userIds = model.IsSequential
+						? model.UserIds
+						: model.UserIds.Distinct().ToList();
+
+					var activeUserIds = await _context.Users
+						.Where(x => userIds.Contains(x.Id) && x.IsActive)
+						.Select(x => x.Id)
+						.ToListAsync();
+					if (activeUserIds.Count != userIds.Distinct().Count())
+					{
+						throw new InvalidOperationException("Нельзя назначить неактивного пользователя на подписание");
+					}
+
+					// При последовательном режиме порядок в списке = порядок подписания (1-based).
+					// При параллельном режиме Order = 0 (очерёдности нет).
+					var documentUsers = userIds
+						.Select((userId, index) => new DocumentUser
+						{
+							UserId = userId,
+							DocumentId = newDocument.Id,
+							SigningStatus = SigningStatus.NOT_SIGNED,
+							AssignedAt = null,
+							Order = model.IsSequential ? index + 1 : 0,
+						})
+						.ToList();
+					await _context.DocumentUsers.AddRangeAsync(documentUsers);
+					await _context.SaveChangesAsync();
+				}
+				return newDocument.GetViewModel;
+			});
 		}
 
 		public async Task<DocumentViewModel?> UpdateAsync(DocumentBindingModel model)

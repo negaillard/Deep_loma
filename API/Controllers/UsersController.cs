@@ -26,6 +26,21 @@ namespace API.Controllers
 			try
 			{
 				_logger.LogInformation($"Попытка получения пользователя по id{id}");
+				var currentUser = HttpContext.Items["User"] as Contracts.ViewModels.UserViewModel;
+				if (currentUser == null)
+				{
+					return Unauthorized();
+				}
+
+				// Проверка прав доступа (BOLA/IDOR)
+				if (currentUser.SystemRole != Models.Enums.SystemRole.SystemAdmin && 
+				    currentUser.SystemRole != Models.Enums.SystemRole.DocumentManager && 
+				    currentUser.Id != id)
+				{
+					_logger.LogWarning("Пользователь {UserId} пытался запросить профиль чужого пользователя {TargetId}", currentUser.Id, id);
+					return Forbid();
+				}
+
 				var user = await _userLogic.ReadElementAsync(new UserSearchModel { Id = id });
 				if (user == null)
 				{

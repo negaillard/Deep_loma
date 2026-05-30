@@ -1,7 +1,10 @@
+using AppLogging;
 using DocumentApp.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddAppLogging("DocumentApp");
 
 builder.Services.AddRazorPages();
 builder.Services.AddHttpContextAccessor();
@@ -47,4 +50,13 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapRazorPages();
 
-app.Run();
+app.UseAppLogging();
+
+try
+{
+    app.Run();
+}
+finally
+{
+    Log.CloseAndFlush();
+}

@@ -1,8 +1,11 @@
+using AppLogging;
 using Contracts.BindingModels.Authentication;
 using MassTransit;
 using NotificationService.Consumers;
+using Serilog;
 
 var builder = Host.CreateApplicationBuilder(args);
+builder.AddAppLogging("NotificationService");
 
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 
@@ -24,5 +27,11 @@ builder.Services.AddMassTransit(x =>
 
 var host = builder.Build();
 
-
-host.Run();
+try
+{
+	host.Run();
+}
+finally
+{
+	Log.CloseAndFlush();
+}

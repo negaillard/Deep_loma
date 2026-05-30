@@ -2,6 +2,7 @@ using API;
 using API.Authorization;
 using API.Controllers;
 using API.Seeding;
+using AppLogging;
 using Auth;
 using Contracts.BindingModels.Authentication;
 using Contracts.LogicContracts;
@@ -9,22 +10,24 @@ using Contracts.LogicContracts.Authentication;
 using Contracts.StorageContracts;
 using FileStorage;
 using Logic;
+using Logic.CertificateGenerators;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.OpenApi.Models;
 using Models;
+using Serilog;
 using Storage;
 using Storage.Storages;
-using Logic.CertificateGenerators;
 
-AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
+AppDomain.CurrentDomain.UnhandledException += (_, e) =>
 {
-	Console.WriteLine($"[FATAL] UnhandledException: {e.ExceptionObject}");
+	Log.Fatal("Необработанное исключение: {Exception}", e.ExceptionObject);
 };
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddAppLogging("API");
 
 /// опционально. конфигурация веб-сервера на прием запросов с такими данными объема
 builder.WebHost.ConfigureKestrel(options =>
@@ -155,15 +158,6 @@ else
 
 builder.Services.AddControllers();
 
-// не поднимаем контроллер сертификата при локальной подписи
-if (certificateMode == CertificateMode.Local)
-{
-	builder.Services.Configure<MvcOptions>(options =>
-	{
-		options.Conventions.Add(new ExcludeControllerConvention(typeof(CertificatesController)));
-	});
-}
-
 builder.Services.AddEndpointsApiExplorer();
 
 var app = builder.Build();
@@ -197,4 +191,13 @@ app.MapControllers();
 
 await app.SeedInitialAdminAsync();
 
-app.Run();
+app.UseAppLogging();
+
+try
+{
+	app.Run();
+}
+finally
+{
+	Log.CloseAndFlush();
+}

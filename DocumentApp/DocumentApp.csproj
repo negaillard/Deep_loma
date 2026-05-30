@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\AppLogging\AppLogging.csproj" />
     <ProjectReference Include="..\NewDiplom\Contracts.csproj" />
     <ProjectReference Include="..\Models\Models.csproj" />
   </ItemGroup>

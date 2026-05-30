@@ -22,6 +22,7 @@
   </ItemGroup>
 
 	<ItemGroup>
+		<ProjectReference Include="..\AppLogging\AppLogging.csproj" />
 		<ProjectReference Include="..\Auth\Auth.csproj" />
 		<ProjectReference Include="..\Logic\Logic.csproj" />
 		<ProjectReference Include="..\NewDiplom\Contracts.csproj" />

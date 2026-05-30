@@ -1,15 +1,18 @@
+using AppLogging;
 using Contracts.LogicContracts;
 using Contracts.StorageContracts;
 using FileStorage;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Models;
+using Serilog;
 using SigningService.Consumers;
 using SigningService.Signing;
 using Storage;
 using Storage.Storages;
 
 var builder = Host.CreateApplicationBuilder(args);
+builder.AddAppLogging("SigningService");
 
 var storageConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")
 	?? builder.Configuration.GetConnectionString("Storage")
@@ -51,6 +54,11 @@ builder.Services.AddMassTransit(x =>
 
 var host = builder.Build();
 
-
-
-host.Run();
+try
+{
+	host.Run();
+}
+finally
+{
+	Log.CloseAndFlush();
+}

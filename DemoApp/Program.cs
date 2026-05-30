@@ -1,8 +1,11 @@
+using AppLogging;
 using DemoApp.Authorization;
 using DemoApp.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddAppLogging("DemoApp");
 
 builder.Services.AddRazorPages(options =>
 {
@@ -58,4 +61,13 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapRazorPages();
 
-app.Run();
+app.UseAppLogging();
+
+try
+{
+    app.Run();
+}
+finally
+{
+    Log.CloseAndFlush();
+}

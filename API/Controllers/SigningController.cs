@@ -49,6 +49,36 @@ namespace API.Controllers
 		public async Task<IActionResult> GetSigners(int id)
 		{
 			_logger.LogInformation("Получение подписантов для документа {DocumentId}", id);
+			var user = HttpContext.Items["User"] as UserViewModel;
+			if (user == null)
+			{
+				return Unauthorized();
+			}
+
+			var document = await _documentLogic.ReadElementAsync(new DocumentSearchModel { Id = id });
+			if (document == null || document.IsDeleted)
+			{
+				return NotFound("Документ не найден");
+			}
+
+			// Проверка прав доступа (BOLA/IDOR)
+			if (user.SystemRole != SystemRole.SystemAdmin && 
+			    user.SystemRole != SystemRole.DocumentManager && 
+			    document.CreatedByUserId != user.Id)
+			{
+				var isAssigned = await _documentUserLogic.ReadElementAsync(new DocumentUserSearchModel
+				{
+					UserId = user.Id,
+					DocumentId = id
+				}) != null;
+
+				if (!isAssigned)
+				{
+					_logger.LogWarning("Пользователь {UserId} пытался получить список подписантов для чужого документа {DocumentId}", user.Id, id);
+					return Forbid();
+				}
+			}
+
 			var documentUsers = await _documentUserLogic.ReadListAsync(
 				new DocumentUserSearchModel { DocumentId = id });
 
@@ -57,8 +87,8 @@ namespace API.Controllers
 
 			foreach (var du in documentUsers)
 			{
-				var user = await _userLogic.ReadElementAsync(new UserSearchModel { Id = du.UserId });
-				du.UserFullname = user?.Fullname;
+				var sUser = await _userLogic.ReadElementAsync(new UserSearchModel { Id = du.UserId });
+				du.UserFullname = sUser?.Fullname;
 			}
 
 			return Ok(documentUsers);

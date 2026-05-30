@@ -15,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\AppLogging\AppLogging.csproj" />
     <ProjectReference Include="..\Logic\Logic.csproj" />
     <ProjectReference Include="..\Storage\Storage.csproj" />
     <ProjectReference Include="..\FileStorage\FileStorage.csproj" />

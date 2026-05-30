@@ -138,6 +138,7 @@ namespace Storage.Storages
 				.ToListAsync();
 		}
 
+		// транзакция
 		public async Task<CertificateViewModel?> InsertAsync(CertificateBindingModel model)
 		{
 			var newCertificate = Certificate.Create(model);
@@ -145,34 +146,8 @@ namespace Storage.Storages
 			{
 				return null;
 			}
-			var user = await _context.Users.FirstOrDefaultAsync(x => x.Id == model.UserId);
-			if (user == null)
-			{
-				throw new InvalidOperationException("Пользователь не найден");
-			}
-			var oldCertificates = await _context.Certificates
-				.Where(x => x.UserId == model.UserId && x.IsActual)
-				.ToListAsync();
-			foreach (var certificate in oldCertificates)
-			{
-				certificate.IsActual = false;
-			}
-			newCertificate.IsActual = true;
-			await _context.Certificates.AddAsync(newCertificate);
-			await _context.SaveChangesAsync();
-			user.CertificateId = newCertificate.Id;
-			await _context.SaveChangesAsync();
-			return newCertificate.GetViewModel;
-		}
 
-		public async Task<CertificateViewModel?> UpdateAsync(CertificateBindingModel model)
-		{
-			var certificate = await FindElementAsync(_context, model);
-			if (certificate == null)
-			{
-				return null;
-			}
-			if (model.IsActual)
+			return await StorageTransactionHelper.ExecuteInTransactionAsync(_context, async () =>
 			{
 				var user = await _context.Users.FirstOrDefaultAsync(x => x.Id == model.UserId);
 				if (user == null)
@@ -180,17 +155,52 @@ namespace Storage.Storages
 					throw new InvalidOperationException("Пользователь не найден");
 				}
 				var oldCertificates = await _context.Certificates
-					.Where(x => x.UserId == model.UserId && x.IsActual && x.Id != certificate.Id)
+					.Where(x => x.UserId == model.UserId && x.IsActual)
 					.ToListAsync();
-				foreach (var oldCertificate in oldCertificates)
+				foreach (var certificate in oldCertificates)
 				{
-					oldCertificate.IsActual = false;
+					certificate.IsActual = false;
 				}
-				user.CertificateId = certificate.Id;
+				newCertificate.IsActual = true;
+				await _context.Certificates.AddAsync(newCertificate);
+				await _context.SaveChangesAsync();
+				user.CertificateId = newCertificate.Id;
+				await _context.SaveChangesAsync();
+				return newCertificate.GetViewModel;
+			});
+		}
+
+		// транзакция
+		public async Task<CertificateViewModel?> UpdateAsync(CertificateBindingModel model)
+		{
+			var certificate = await FindElementAsync(_context, model);
+			if (certificate == null)
+			{
+				return null;
 			}
-			certificate.Update(model);
-			await _context.SaveChangesAsync();
-			return certificate.GetViewModel;
+
+			return await StorageTransactionHelper.ExecuteInTransactionAsync(_context, async () =>
+			{
+				if (model.IsActual)
+				{
+					var user = await _context.Users.FirstOrDefaultAsync(x => x.Id == model.UserId);
+					if (user == null)
+					{
+						throw new InvalidOperationException("Пользователь не найден");
+					}
+					var oldCertificates = await _context.Certificates
+						.Where(x => x.UserId == model.UserId && x.IsActual && x.Id != certificate.Id)
+						.ToListAsync();
+					foreach (var oldCertificate in oldCertificates)
+					{
+						oldCertificate.IsActual = false;
+					}
+					user.CertificateId = certificate.Id;
+				}
+				certificate.Update(model);
+				await _context.SaveChangesAsync();
+				return certificate.GetViewModel;
+			});
 		}
 
 		private static Task<Certificate?> FindElementAsync(StorageContext context, CertificateBindingModel model)

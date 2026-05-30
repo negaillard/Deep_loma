@@ -69,12 +69,37 @@ namespace API.Controllers
 			try
 			{
 				_logger.LogInformation($"Попытка получения документа по id{id}");
+				var user = HttpContext.Items["User"] as UserViewModel;
+				if (user == null)
+				{
+					return Unauthorized();
+				}
+
 				var document = await _documentLogic.ReadElementAsync(new DocumentSearchModel { Id = id });
 				if (document == null)
 				{
 					_logger.LogWarning($"документ по id{id} не найден");
 					return NotFound();
 				}
+
+				// Проверка прав доступа (BOLA/IDOR)
+				if (user.SystemRole != SystemRole.SystemAdmin && 
+				    user.SystemRole != SystemRole.DocumentManager && 
+				    document.CreatedByUserId != user.Id)
+				{
+					var isAssigned = await _documentUserLogic.ReadElementAsync(new DocumentUserSearchModel
+					{
+						UserId = user.Id,
+						DocumentId = id
+					}) != null;
+
+					if (!isAssigned)
+					{
+						_logger.LogWarning("Пользователь {UserId} пытался получить доступ к чужому документу {DocumentId}", user.Id, id);
+						return Forbid();
+					}
+				}
+
 				_logger.LogInformation($"документ по id{id} найден");
 				return Ok(document);
 			}
@@ -273,10 +298,34 @@ namespace API.Controllers
 			try
 			{
 				_logger.LogInformation($"Попытка скачать файл документа id{id}");
+				var user = HttpContext.Items["User"] as UserViewModel;
+				if (user == null)
+				{
+					return Unauthorized();
+				}
+
 				var document = await _documentLogic.ReadElementAsync(new DocumentSearchModel { Id = id });
 				if (document == null || string.IsNullOrWhiteSpace(document.Path))
 				{
 					return NotFound("Файл документа не найден");
+				}
+
+				// Проверка прав доступа (BOLA/IDOR)
+				if (user.SystemRole != SystemRole.SystemAdmin && 
+				    user.SystemRole != SystemRole.DocumentManager && 
+				    document.CreatedByUserId != user.Id)
+				{
+					var isAssigned = await _documentUserLogic.ReadElementAsync(new DocumentUserSearchModel
+					{
+						UserId = user.Id,
+						DocumentId = id
+					}) != null;
+
+					if (!isAssigned)
+					{
+						_logger.LogWarning("Пользователь {UserId} пытался скачать чужой файл документа {DocumentId}", user.Id, id);
+						return Forbid();
+					}
 				}
 
 				var stream = await _fileStorage.GetFileAsync(document.Path);
@@ -328,9 +377,24 @@ namespace API.Controllers
 	{
 		try
 		{
+			var user = HttpContext.Items["User"] as UserViewModel;
+			if (user == null)
+			{
+				return Unauthorized();
+			}
+
 			var document = await _documentLogic.ReadElementAsync(new DocumentSearchModel { Id = id });
 			if (document == null || document.IsDeleted)
 				return NotFound("Документ не найден");
+
+			// Проверка прав доступа (BOLA/IDOR)
+			if (user.SystemRole != SystemRole.SystemAdmin && 
+			    user.SystemRole != SystemRole.DocumentManager && 
+			    document.CreatedByUserId != user.Id)
+			{
+				_logger.LogWarning("Пользователь {UserId} пытался получить пакет верификации для чужого документа {DocumentId}", user.Id, id);
+				return Forbid();
+			}
 
 			if (document.Status != DocumentStatus.SIGNED)
 				return BadRequest("Пакет верификации доступен только для полностью подписанных документов");

@@ -5,6 +5,7 @@ WORKDIR /src
 COPY ["DemoApp/DemoApp.csproj", "DemoApp/"]
 COPY ["NewDiplom/Contracts.csproj", "NewDiplom/"]
 COPY ["Models/Models.csproj", "Models/"]
+COPY ["AppLogging/AppLogging.csproj", "AppLogging/"]
 COPY ["Nugets/", "Nugets/"]
 COPY ["nuget.config", "./"]
 RUN dotnet restore "./DemoApp/DemoApp.csproj"

@@ -213,13 +213,17 @@ namespace API.Helpers
 			sb.AppendLine();
 			sb.AppendLine("Состав пакета:");
 			sb.AppendLine("  document.*          — оригинальный документ");
+			sb.AppendLine("  document_print.pdf  — версия документа для печати, содержит штампы электронных подписей");
 			sb.AppendLine("  signatures/*.sig    — отсоединённые подписи (PKCS#7 DER)");
 			sb.AppendLine();
 			sb.AppendLine("Проверка подписи (КриптоПро CSP):");
-			sb.AppendLine("  csptest -sfsign -verify -in document.* -signature signatures/<ФИО>.sig -detached");
+			sb.AppendLine("  1. Откройте файл с подписью (.sig) для проверки через КриптоПро CSP");
+			sb.AppendLine("  2. Выберите оригинальный файл для проверки подписей");
 			sb.AppendLine();
-			sb.AppendLine("Проверка подписи (OpenSSL, только для RSA):");
-			sb.AppendLine("  openssl smime -verify -inform DER -in signatures/<ФИО>.sig -content document.* -noverify");
+			sb.AppendLine("Проверка подписи (OpenSSL, внутренний режим):");
+			sb.AppendLine("  1. Откройте специальную утилиту SignatureVerifier");
+			sb.AppendLine("  2. Выберите файл с подписью (.sig)");
+			sb.AppendLine("  3. Выберите оригинальный файл с подписью для проверки подписей");
 			sb.AppendLine();
 			sb.AppendLine("Подписанты (ФИО в системе):");
 			foreach (var (signerName, signedAt) in signers)

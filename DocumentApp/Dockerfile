@@ -14,6 +14,7 @@ ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY ["DocumentApp/DocumentApp.csproj", "DocumentApp/"]
 COPY ["NewDiplom/Contracts.csproj", "NewDiplom/"]
+COPY ["AppLogging/AppLogging.csproj", "AppLogging/"]
 COPY ["Models/Models.csproj", "Models/"]
 COPY ["Nugets/", "Nugets/"]
 COPY ["nuget.config", "./"]

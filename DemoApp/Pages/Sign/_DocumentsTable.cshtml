@@ -41,7 +41,6 @@ else
                     <th>Документ</th>
                     <th>Кто создал</th>
                     <th>Создан</th>
-                    <th>Назначен</th>
                     @if (showActions)
                     {
                         <th style="width:200px;">Действия</th>
@@ -79,9 +78,6 @@ else
                         </td>
                         <td style="font-size:0.82rem;color:#6b7280;white-space:nowrap;">
                             @doc.CreatedAt.ToString("dd.MM.yyyy")
-                        </td>
-                        <td style="font-size:0.82rem;color:#6b7280;white-space:nowrap;">
-                            @(doc.AssignedAt?.ToString("dd.MM.yyyy") ?? "—")
                         </td>
                         @if (showActions)
                         {

@@ -9,13 +9,14 @@ COPY ["Storage/Storage.csproj", "Storage/"]
 COPY ["Models/Models.csproj", "Models/"]
 COPY ["FileStorage/FileStorage.csproj", "FileStorage/"]
 COPY ["MessageContracts/MessageContracts.csproj", "MessageContracts/"]
+COPY ["AppLogging/AppLogging.csproj", "AppLogging/"]
 COPY ["Nugets/", "Nugets/"]
 COPY ["nuget.config", "./"]
 RUN dotnet restore "./SigningService/SigningService.csproj"
 COPY . .
 RUN dotnet publish "./SigningService/SigningService.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false --no-restore
 
-FROM mcr.microsoft.com/dotnet/runtime:8.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "SigningService.dll"]
